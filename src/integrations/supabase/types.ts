@@ -14,7 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      wifi_measurements: {
+        Row: {
+          created_at: string
+          downlink_estimate_mbps: number | null
+          download_mbps: number
+          effective_type: string | null
+          id: string
+          jitter_ms: number
+          label: string | null
+          packet_loss_pct: number
+          ping_ms: number
+          predicted_label: string | null
+          source: string
+          upload_mbps: number
+        }
+        Insert: {
+          created_at?: string
+          downlink_estimate_mbps?: number | null
+          download_mbps: number
+          effective_type?: string | null
+          id?: string
+          jitter_ms: number
+          label?: string | null
+          packet_loss_pct?: number
+          ping_ms: number
+          predicted_label?: string | null
+          source?: string
+          upload_mbps: number
+        }
+        Update: {
+          created_at?: string
+          downlink_estimate_mbps?: number | null
+          download_mbps?: number
+          effective_type?: string | null
+          id?: string
+          jitter_ms?: number
+          label?: string | null
+          packet_loss_pct?: number
+          ping_ms?: number
+          predicted_label?: string | null
+          source?: string
+          upload_mbps?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

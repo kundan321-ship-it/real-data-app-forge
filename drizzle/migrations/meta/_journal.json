@@ -1,5 +1,13 @@
 {
   "version": "7",
   "dialect": "postgresql",
-  "entries": []
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1792576382338,
+      "tag": "0000_create_wifi_measurements",
+      "breakpoints": true
+    }
+  ]
 }
