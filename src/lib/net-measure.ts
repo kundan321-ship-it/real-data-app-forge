@@ -72,7 +72,9 @@ async function timedProbe(): Promise<number | null> {
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+  const upper = sorted[mid]!;
+  const lower = sorted[mid - 1] ?? upper;
+  return sorted.length % 2 === 0 ? (lower + upper) / 2 : upper;
 }
 
 interface LatencyResult {
@@ -102,7 +104,7 @@ async function measureLatency(): Promise<LatencyResult> {
   // Jitter: mean absolute difference between consecutive probe times.
   let jitterSum = 0;
   if (samples.length > 1) {
-    for (let i = 1; i < samples.length; i++) jitterSum += Math.abs(samples[i] - samples[i - 1]);
+    for (let i = 1; i < samples.length; i++) jitterSum += Math.abs(samples[i]! - samples[i - 1]!);
   }
   const jitterMs = samples.length > 1 ? jitterSum / (samples.length - 1) : 0;
 

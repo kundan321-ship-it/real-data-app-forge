@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createFileRoute, notFound, useLoaderData } from "@tanstack/react-router";
-import { useMutation, useQueryClient, useServerFn } from "@tanstack/react-query";
+import { createFileRoute, useLoaderData } from "@tanstack/react-router";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import {
   runSpeedTest,
   readConnectionInfo,
@@ -17,7 +18,7 @@ import {
 } from "@/lib/decision-tree";
 import { saveMeasurement, type MeasurementDTO } from "@/lib/wifi.functions";
 import { measurementsQueryOptions } from "@/lib/queries";
-import { MetricCard, SectionTitle, StatusBadge, RouteError, RouteNotFound } from "@/components/ui-bits";
+import { MetricCard, SectionTitle, StatusBadge, RouteError, RouteNotFound, WifiMark } from "@/components/ui-bits";
 
 export const Route = createFileRoute("/")({
   head: () => ({

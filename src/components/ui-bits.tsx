@@ -23,8 +23,8 @@ export function MetricCard({
   label: string;
   value: string | number | null;
   unit: string;
-  hint?: string;
-  live?: boolean;
+  hint?: string | undefined;
+  live?: boolean | undefined;
 }) {
   return (
     <div className="rounded-xl border border-border bg-card px-4 py-3.5">
