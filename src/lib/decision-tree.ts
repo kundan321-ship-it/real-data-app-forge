@@ -95,11 +95,14 @@ function candidateThresholds(values: number[]): number[] {
   const sorted = [...new Set(values)].sort((a, b) => a - b);
   if (sorted.length <= 1) return [];
   const mids: number[] = [];
-  for (let i = 1; i < sorted.length; i++) mids.push((sorted[i - 1] + sorted[i]) / 2);
+  for (let i = 1; i < sorted.length; i++) mids.push((sorted[i - 1]! + sorted[i]!) / 2);
   if (mids.length <= MAX_CANDIDATES) return mids;
   const step = mids.length / MAX_CANDIDATES;
   const picked: number[] = [];
-  for (let i = 0; i < MAX_CANDIDATES; i++) picked.push(mids[Math.floor(i * step)]);
+  for (let i = 0; i < MAX_CANDIDATES; i++) {
+    const pick = mids[Math.floor(i * step)];
+    if (pick !== undefined) picked.push(pick);
+  }
   return [...new Set(picked)];
 }
 
@@ -170,7 +173,9 @@ function shuffle<T>(items: T[], rng: () => number): T[] {
   const arr = [...items];
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+    const tmp = arr[i]!;
+    arr[i] = arr[j]!;
+    arr[j] = tmp;
   }
   return arr;
 }
