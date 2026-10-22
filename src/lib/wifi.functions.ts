@@ -14,6 +14,7 @@ export interface MeasurementDTO {
   packetLossPct: number;
   downlinkEstimateMbps: number | null;
   effectiveType: string | null;
+  networkName: string | null;
   label: WifiLabel | null;
   predictedLabel: WifiLabel | null;
   source: string;
@@ -61,6 +62,7 @@ function mapRow(row: MeasurementRow): MeasurementDTO {
     packetLossPct: toNumber(row["packet_loss_pct"]) ?? 0,
     downlinkEstimateMbps: toNumber(row["downlink_estimate_mbps"]),
     effectiveType: (row["effective_type"] as string | null) ?? null,
+    networkName: (row["network_name"] as string | null) ?? null,
     label: toLabel(row["label"]),
     predictedLabel: toLabel(row["predicted_label"]),
     source: String(row["source"] ?? "browser"),
@@ -89,6 +91,7 @@ const saveInput = z.object({
   packetLossPct: z.number().min(0).max(100),
   downlinkEstimateMbps: z.number().min(0).max(2000).nullable().optional(),
   effectiveType: z.string().max(20).nullable().optional(),
+  networkName: z.string().max(160).nullable().optional(),
   label: labelSchema.nullable().optional(),
   predictedLabel: labelSchema.nullable().optional(),
   source: z.string().max(40).optional(),
@@ -109,6 +112,7 @@ export const saveMeasurement = createServerFn({ method: "POST" })
         packet_loss_pct: data.packetLossPct,
         downlink_estimate_mbps: data.downlinkEstimateMbps ?? null,
         effective_type: data.effectiveType ?? null,
+        network_name: data.networkName ?? null,
         label: data.label ?? null,
         predicted_label: data.predictedLabel ?? null,
         source: data.source ?? "browser",

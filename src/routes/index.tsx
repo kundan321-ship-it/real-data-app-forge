@@ -5,9 +5,11 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   runSpeedTest,
   readConnectionInfo,
+  fetchNetworkIdentity,
   type TestStage,
   type SpeedTestResult,
   type ConnectionInfo,
+  type NetworkIdentity,
 } from "@/lib/net-measure";
 import {
   trainTree,
@@ -59,6 +61,15 @@ function fmt(n: number | null | undefined, digits = 1): string {
   return n.toFixed(digits);
 }
 
+/** Clear "date · time" formatting used everywhere a run is stamped. */
+function fmtWhen(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const date = d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
+  const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  return `${date} · ${time}`;
+}
+
 function Index() {
   const data = useLoaderData({ from: "/" }) as MeasurementDTO[];
   const queryClient = useQueryClient();
@@ -68,6 +79,7 @@ function Index() {
   const [liveDownload, setLiveDownload] = useState<number | null>(null);
   const [prediction, setPrediction] = useState<Prediction | null>(null);
   const [conn, setConn] = useState<ConnectionInfo | null>(null);
+  const [network, setNetwork] = useState<NetworkIdentity | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [relabeled, setRelabeled] = useState(false);
@@ -111,7 +123,11 @@ function Index() {
     setSavedId(null);
     setRelabeled(false);
     setLiveDownload(null);
+    setNetwork(null);
     setPhase("latency");
+    // Resolve which network we are testing (ISP/organization of the public IP)
+    // while the latency probes run — it is saved with the measurement.
+    void fetchNetworkIdentity().then(setNetwork);
     try {
       const result = await runSpeedTest({
         onStage: (stage) => setPhase(stage as Phase),
@@ -134,8 +150,7 @@ function Index() {
           ...result,
           downlinkEstimateMbps: conn?.downlinkMbps ?? null,
           effectiveType: conn?.effectiveType ?? null,
-          predictedLabel: predicted.label,
-          source: "auto-test",
+          networkName: network?.name ?? null,
         },
       });
       setSavedId(saved.id);

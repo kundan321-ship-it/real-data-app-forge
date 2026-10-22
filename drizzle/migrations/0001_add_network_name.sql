@@ -1,0 +1,2 @@
+ALTER TABLE public.wifi_measurements ADD COLUMN network_name TEXT;
+COMMENT ON COLUMN public.wifi_measurements.network_name IS 'Detected network identity (ISP / organization) shown with each saved run';
