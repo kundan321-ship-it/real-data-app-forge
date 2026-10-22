@@ -176,6 +176,63 @@ async function measureUpload(): Promise<number> {
   return Math.round(((UPLOAD_BYTES * 8) / 1e6 / elapsedSec) * 10) / 10;
 }
 
+// ============= Network identity =============
+
+/**
+ * Browsers cannot read the Wi-Fi SSID directly, so we resolve the network's
+ * real identity from the public IP: ISP / organization name (what the college
+ * network is operated by) plus a city/country line. This is the network that
+ * actually carried the measurement — not a fake or hardcoded name.
+ */
+export interface NetworkIdentity {
+  name: string;
+  isp: string | null;
+  location: string | null;
+  ip: string | null;
+}
+
+interface IpWhoIsResponse {
+  success?: boolean;
+  ip?: string;
+  city?: string;
+  region?: string;
+  country?: string;
+  connection?: { isp?: string; org?: string; asn?: number | string; domain?: string };
+}
+
+export async function fetchNetworkIdentity(): Promise<NetworkIdentity | null> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(`https://ipwho.is/${Date.now()}`, {
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const body = (await res.json()) as IpWhoIsResponse;
+    if (body.success === false) return null;
+
+    const isp = body.connection?.isp ?? body.connection?.org ?? null;
+    if (!isp) return null;
+
+    const asn = body.connection?.asn ? ` (AS${body.connection.asn})` : "";
+    const locationParts = [body.city, body.country].filter(
+      (part): part is string => typeof part === "string" && part.length > 0,
+    );
+    const name = `${isp}${asn}`;
+
+    return {
+      name,
+      isp,
+      location: locationParts.length > 0 ? locationParts.join(", ") : null,
+      ip: typeof body.ip === "string" ? body.ip : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** Run the full real-network speed test: latency probes, download, upload. */
 export async function runSpeedTest(handlers?: {
   onStage?: (stage: TestStage) => void;
