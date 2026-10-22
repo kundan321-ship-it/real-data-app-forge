@@ -23,6 +23,7 @@ export type Database = {
           id: string
           jitter_ms: number
           label: string | null
+          network_name: string | null
           packet_loss_pct: number
           ping_ms: number
           predicted_label: string | null
@@ -37,6 +38,7 @@ export type Database = {
           id?: string
           jitter_ms: number
           label?: string | null
+          network_name?: string | null
           packet_loss_pct?: number
           ping_ms: number
           predicted_label?: string | null
@@ -51,6 +53,7 @@ export type Database = {
           id?: string
           jitter_ms?: number
           label?: string | null
+          network_name?: string | null
           packet_loss_pct?: number
           ping_ms?: number
           predicted_label?: string | null
