@@ -14,6 +14,7 @@ export interface MeasurementDTO {
   packetLossPct: number;
   downlinkEstimateMbps: number | null;
   effectiveType: string | null;
+  networkName: string | null;
   label: WifiLabel | null;
   predictedLabel: WifiLabel | null;
   source: string;
