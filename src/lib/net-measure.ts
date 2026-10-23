@@ -115,14 +115,18 @@ async function measureLatency(): Promise<LatencyResult> {
   };
 }
 
-async function measureDownload(onLive?: (mbps: number) => void): Promise<number> {
+async function measureDownload(
+  totalBytes: number,
+  maxMs: number,
+  onLive?: (mbps: number) => void,
+): Promise<number> {
   const controller = new AbortController();
   let bytes = 0;
   let abortedByCap = false;
   const start = performance.now();
 
   try {
-    const res = await fetch(`${CF_BASE}/__down?bytes=${DOWNLOAD_BYTES}&t=${Date.now()}`, {
+    const res = await fetch(`${CF_BASE}/__down?bytes=${totalBytes}&t=${Date.now()}`, {
       signal: controller.signal,
       cache: "no-store",
     });
@@ -131,7 +135,7 @@ async function measureDownload(onLive?: (mbps: number) => void): Promise<number>
     let lastUpdate = 0;
     for (;;) {
       const elapsedMs = performance.now() - start;
-      if (elapsedMs > DOWNLOAD_MAX_MS) {
+      if (elapsedMs > maxMs) {
         abortedByCap = true;
         controller.abort();
       }
