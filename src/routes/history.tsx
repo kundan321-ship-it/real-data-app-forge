@@ -44,6 +44,15 @@ function fmt(n: number, digits = 1): string {
   return Number.isFinite(n) ? n.toFixed(digits) : "—";
 }
 
+/** Clear "date · time" stamp for every saved run. */
+function fmtWhen(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const date = d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
+  const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  return `${date} · ${time}`;
+}
+
 function StatsRow({ data }: { data: MeasurementDTO[] }) {
   const count = data.length;
   const avgDownload = count ? data.reduce((s, r) => s + r.downloadMbps, 0) / count : 0;
@@ -84,6 +93,7 @@ function DownloadTrend({ data }: { data: MeasurementDTO[] }) {
     .slice(-40)
     .map((row, i) => ({
       idx: i + 1,
+      when: fmtWhen(row.createdAt),
       download: Number(row.downloadMbps.toFixed(1)),
       ping: Number(row.pingMs.toFixed(0)),
     }));
@@ -101,7 +111,10 @@ function DownloadTrend({ data }: { data: MeasurementDTO[] }) {
               borderRadius: 10,
               fontSize: 12,
             }}
-            labelFormatter={(label) => `Run #${label}`}
+            labelFormatter={(label, payload) => {
+              const point = payload?.[0]?.payload as { when?: string } | undefined;
+              return point?.when ? `Run #${label} · ${point.when}` : `Run #${label}`;
+            }}
           />
           <Line type="monotone" dataKey="download" name="Download (Mbps)" stroke="oklch(0.84 0.18 160)" strokeWidth={2} dot={false} />
           <Line type="monotone" dataKey="ping" name="Ping (ms)" stroke="oklch(0.76 0.13 210)" strokeWidth={1.5} dot={false} />
@@ -160,10 +173,11 @@ function HistoryPage() {
           </p>
         ) : (
           <div className="scroll-thin overflow-x-auto rounded-xl border border-border bg-card">
-            <table className="w-full min-w-[760px] text-left text-sm">
+            <table className="w-full min-w-[880px] text-left text-sm">
               <thead>
                 <tr className="border-b border-border text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
                   <th className="px-4 py-3 font-medium">When</th>
+                  <th className="px-4 py-3 font-medium">Network</th>
                   <th className="px-4 py-3 font-medium">Download</th>
                   <th className="px-4 py-3 font-medium">Upload</th>
                   <th className="px-4 py-3 font-medium">Ping</th>
@@ -176,8 +190,9 @@ function HistoryPage() {
                 {data.slice(0, 50).map((row) => (
                   <tr key={row.id} className="border-b border-border/60 last:border-0">
                     <td className="px-4 py-2.5 font-sans text-xs text-muted-foreground">
-                      {new Date(row.createdAt).toLocaleString()}
+                      {fmtWhen(row.createdAt)}
                     </td>
+                    <td className="px-4 py-2.5 text-foreground">{row.networkName ?? "—"}</td>
                     <td className="px-4 py-2.5 text-foreground">{fmt(row.downloadMbps)}</td>
                     <td className="px-4 py-2.5 text-foreground">{fmt(row.uploadMbps)}</td>
                     <td className="px-4 py-2.5 text-foreground">{fmt(row.pingMs, 0)}</td>
