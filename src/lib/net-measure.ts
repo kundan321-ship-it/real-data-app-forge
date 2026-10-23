@@ -200,6 +200,17 @@ interface IpWhoIsResponse {
   connection?: { isp?: string; org?: string; asn?: number | string; domain?: string };
 }
 
+/** Normalized shape both lookup providers are read through. */
+interface IpApiResponse {
+  ip?: string;
+  city?: string;
+  region?: string;
+  country?: string;
+  isp?: string | null;
+  org?: string | null;
+  asn?: number | string | null;
+}
+
 export async function fetchNetworkIdentity(): Promise<NetworkIdentity | null> {
   try {
     const controller = new AbortController();
