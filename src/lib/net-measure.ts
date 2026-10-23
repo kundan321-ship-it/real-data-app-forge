@@ -212,6 +212,23 @@ interface IpApiResponse {
 }
 
 export async function fetchNetworkIdentity(): Promise<NetworkIdentity | null> {
+  const read = (body: IpWhoIsResponse | IpApiResponse): NetworkIdentity | null => {
+    const isp = body.isp ?? body.org ?? null;
+    if (!isp) return null;
+
+    const asn = body.asn ? ` (AS${body.asn})` : "";
+    const locationParts = [body.city, body.country].filter(
+      (part): part is string => typeof part === "string" && part.length > 0,
+    );
+
+    return {
+      name: `${isp}${asn}`,
+      isp,
+      location: locationParts.length > 0 ? locationParts.join(", ") : null,
+      ip: typeof body.ip === "string" ? body.ip : null,
+    };
+  };
+
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
@@ -220,25 +237,28 @@ export async function fetchNetworkIdentity(): Promise<NetworkIdentity | null> {
       cache: "no-store",
     });
     clearTimeout(timer);
+    if (res.ok) {
+      const body = (await res.json()) as IpWhoIsResponse;
+      if (body.success !== false) {
+        const parsed = read({ ...body, isp: body.connection?.isp ?? null, org: body.connection?.org ?? null, asn: body.connection?.asn ?? null });
+        if (parsed) return parsed;
+      }
+    }
+  } catch {
+    // fall through to the backup provider
+  }
+
+  // Backup provider (ipapi.co) in case the primary lookup is unreachable.
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(`https://ipapi.co/json/?t=${Date.now()}`, {
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    clearTimeout(timer);
     if (!res.ok) return null;
-    const body = (await res.json()) as IpWhoIsResponse;
-    if (body.success === false) return null;
-
-    const isp = body.connection?.isp ?? body.connection?.org ?? null;
-    if (!isp) return null;
-
-    const asn = body.connection?.asn ? ` (AS${body.connection.asn})` : "";
-    const locationParts = [body.city, body.country].filter(
-      (part): part is string => typeof part === "string" && part.length > 0,
-    );
-    const name = `${isp}${asn}`;
-
-    return {
-      name,
-      isp,
-      location: locationParts.length > 0 ? locationParts.join(", ") : null,
-      ip: typeof body.ip === "string" ? body.ip : null,
-    };
+    return read((await res.json()) as IpApiResponse);
   } catch {
     return null;
   }
