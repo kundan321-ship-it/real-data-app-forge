@@ -277,7 +277,17 @@ export async function runSpeedTest(handlers?: {
   const latency = await measureLatency();
 
   handlers?.onStage?.("download");
-  const downloadMbps = await measureDownload(handlers?.onLiveDownload);
+  let downloadMbps = await measureDownload(DOWNLOAD_BYTES, DOWNLOAD_MAX_MS, handlers?.onLiveDownload);
+  // On stalled or heavily throttled networks the big transfer can yield zero
+  // bytes — retry once with a smaller request before reporting 0.
+  if (downloadMbps <= 0) {
+    downloadMbps = await measureDownload(4 * 1024 * 1024, 12000, handlers?.onLiveDownload);
+  }
+  if (downloadMbps <= 0) {
+    throw new Error(
+      "Download measurement failed — the network stalled or blocked the test transfer. Try again.",
+    );
+  }
 
   handlers?.onStage?.("upload");
   const uploadMbps = await measureUpload();
