@@ -115,14 +115,18 @@ async function measureLatency(): Promise<LatencyResult> {
   };
 }
 
-async function measureDownload(onLive?: (mbps: number) => void): Promise<number> {
+async function measureDownload(
+  totalBytes: number,
+  maxMs: number,
+  onLive?: (mbps: number) => void,
+): Promise<number> {
   const controller = new AbortController();
   let bytes = 0;
   let abortedByCap = false;
   const start = performance.now();
 
   try {
-    const res = await fetch(`${CF_BASE}/__down?bytes=${DOWNLOAD_BYTES}&t=${Date.now()}`, {
+    const res = await fetch(`${CF_BASE}/__down?bytes=${totalBytes}&t=${Date.now()}`, {
       signal: controller.signal,
       cache: "no-store",
     });
@@ -131,7 +135,7 @@ async function measureDownload(onLive?: (mbps: number) => void): Promise<number>
     let lastUpdate = 0;
     for (;;) {
       const elapsedMs = performance.now() - start;
-      if (elapsedMs > DOWNLOAD_MAX_MS) {
+      if (elapsedMs > maxMs) {
         abortedByCap = true;
         controller.abort();
       }
@@ -200,7 +204,35 @@ interface IpWhoIsResponse {
   connection?: { isp?: string; org?: string; asn?: number | string; domain?: string };
 }
 
+/** Normalized shape both lookup providers are read through. */
+interface IpApiResponse {
+  ip?: string;
+  city?: string;
+  region?: string;
+  country?: string;
+  isp?: string | null;
+  org?: string | null;
+  asn?: number | string | null;
+}
+
 export async function fetchNetworkIdentity(): Promise<NetworkIdentity | null> {
+  const read = (body: IpApiResponse): NetworkIdentity | null => {
+    const isp = body.isp ?? body.org ?? null;
+    if (!isp) return null;
+
+    const asn = body.asn ? ` (AS${body.asn})` : "";
+    const locationParts = [body.city, body.country].filter(
+      (part): part is string => typeof part === "string" && part.length > 0,
+    );
+
+    return {
+      name: `${isp}${asn}`,
+      isp,
+      location: locationParts.length > 0 ? locationParts.join(", ") : null,
+      ip: typeof body.ip === "string" ? body.ip : null,
+    };
+  };
+
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
@@ -209,25 +241,28 @@ export async function fetchNetworkIdentity(): Promise<NetworkIdentity | null> {
       cache: "no-store",
     });
     clearTimeout(timer);
+    if (res.ok) {
+      const body = (await res.json()) as IpWhoIsResponse;
+      if (body.success !== false) {
+        const parsed = read({ ...body, isp: body.connection?.isp ?? null, org: body.connection?.org ?? null, asn: body.connection?.asn ?? null });
+        if (parsed) return parsed;
+      }
+    }
+  } catch {
+    // fall through to the backup provider
+  }
+
+  // Backup provider (ipapi.co) in case the primary lookup is unreachable.
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(`https://ipapi.co/json/?t=${Date.now()}`, {
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    clearTimeout(timer);
     if (!res.ok) return null;
-    const body = (await res.json()) as IpWhoIsResponse;
-    if (body.success === false) return null;
-
-    const isp = body.connection?.isp ?? body.connection?.org ?? null;
-    if (!isp) return null;
-
-    const asn = body.connection?.asn ? ` (AS${body.connection.asn})` : "";
-    const locationParts = [body.city, body.country].filter(
-      (part): part is string => typeof part === "string" && part.length > 0,
-    );
-    const name = `${isp}${asn}`;
-
-    return {
-      name,
-      isp,
-      location: locationParts.length > 0 ? locationParts.join(", ") : null,
-      ip: typeof body.ip === "string" ? body.ip : null,
-    };
+    return read((await res.json()) as IpApiResponse);
   } catch {
     return null;
   }
@@ -242,7 +277,17 @@ export async function runSpeedTest(handlers?: {
   const latency = await measureLatency();
 
   handlers?.onStage?.("download");
-  const downloadMbps = await measureDownload(handlers?.onLiveDownload);
+  let downloadMbps = await measureDownload(DOWNLOAD_BYTES, DOWNLOAD_MAX_MS, handlers?.onLiveDownload);
+  // On stalled or heavily throttled networks the big transfer can yield zero
+  // bytes — retry once with a smaller request before reporting 0.
+  if (downloadMbps <= 0) {
+    downloadMbps = await measureDownload(4 * 1024 * 1024, 12000, handlers?.onLiveDownload);
+  }
+  if (downloadMbps <= 0) {
+    throw new Error(
+      "Download measurement failed — the network stalled or blocked the test transfer. Try again.",
+    );
+  }
 
   handlers?.onStage?.("upload");
   const uploadMbps = await measureUpload();

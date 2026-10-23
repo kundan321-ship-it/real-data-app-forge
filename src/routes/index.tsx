@@ -151,6 +151,8 @@ function Index() {
           downlinkEstimateMbps: conn?.downlinkMbps ?? null,
           effectiveType: conn?.effectiveType ?? null,
           networkName: network?.name ?? null,
+          predictedLabel: predicted.label,
+          source: "auto-test",
         },
       });
       setSavedId(saved.id);
@@ -172,6 +174,7 @@ function Index() {
           ...metrics,
           downlinkEstimateMbps: conn?.downlinkMbps ?? null,
           effectiveType: conn?.effectiveType ?? null,
+          networkName: network?.name ?? null,
           label,
           source: "user-labeled",
         },
@@ -221,6 +224,11 @@ function Index() {
               </span>
               {testing ? "Measuring…" : phase === "done" ? "Run again" : "Start Wi-Fi Test"}
             </button>
+            {network ? (
+              <p className="mt-2 text-center text-xs text-muted-foreground">
+                Testing: <span className="font-medium text-foreground">{network.name}</span>
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -284,6 +292,13 @@ function Index() {
       {(testing || metrics) && (
         <section className="rounded-2xl border border-border bg-card p-6 sm:p-8">
           <SectionTitle kicker="ML prediction">Wi-Fi performance</SectionTitle>
+          <p className="mb-4 text-xs text-muted-foreground">
+            Network:{" "}
+            <span className="font-medium text-foreground">
+              {network ? network.name : "detecting…"}
+            </span>
+            {network?.location ? <span className="ml-1">· {network.location}</span> : null}
+          </p>
           {prediction ? (
             <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-5">
@@ -377,7 +392,8 @@ function Index() {
                     <span className="text-muted-foreground">↑</span> · {fmt(row.pingMs, 0)} <span className="text-muted-foreground">ms</span>
                   </p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {new Date(row.createdAt).toLocaleString()}
+                    {fmtWhen(row.createdAt)}
+                    {row.networkName ? ` · ${row.networkName}` : ""}
                     {row.label ? ` · labeled ${row.label.toLowerCase()}` : ""}
                   </p>
                 </div>

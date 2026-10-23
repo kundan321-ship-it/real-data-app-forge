@@ -52,6 +52,15 @@ function fmtPct(value: number): string {
   return `${Math.round(value * 100)}%`;
 }
 
+/** Clear "date · time" stamp for training-run timestamps. */
+function fmtWhen(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const date = d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
+  const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  return `${date} · ${time}`;
+}
+
 function ModelPage() {
   const data = useLoaderData({ from: "/model" }) as MeasurementDTO[];
   const [seed, setSeed] = useState(42);
@@ -83,6 +92,15 @@ function ModelPage() {
 
   const total = labeled.length;
 
+  // Newest labeled measurement = when the current training set was last extended.
+  const lastTrainedAt = useMemo(() => {
+    let latest: string | null = null;
+    for (const row of data) {
+      if (row.label !== null && (latest === null || row.createdAt > latest)) latest = row.createdAt;
+    }
+    return latest;
+  }, [data]);
+
   return (
     <div className="space-y-8">
       <div>
@@ -91,6 +109,11 @@ function ModelPage() {
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
           A CART decision tree (Gini impurity, max depth 6) trained live in your browser on every labeled
           measurement stored in the cloud database. Each labeled run you submit makes the next verdict smarter.
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {lastTrainedAt
+            ? `Last training run: ${fmtWhen(lastTrainedAt)} · ${total} labeled samples · retrains automatically with every new labeled run.`
+            : "No labeled samples yet — the model starts training as soon as a run is labeled."}
         </p>
       </div>
 
