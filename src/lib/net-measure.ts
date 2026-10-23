@@ -216,7 +216,7 @@ interface IpApiResponse {
 }
 
 export async function fetchNetworkIdentity(): Promise<NetworkIdentity | null> {
-  const read = (body: IpWhoIsResponse | IpApiResponse): NetworkIdentity | null => {
+  const read = (body: IpApiResponse): NetworkIdentity | null => {
     const isp = body.isp ?? body.org ?? null;
     if (!isp) return null;
 
