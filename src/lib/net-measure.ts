@@ -215,57 +215,83 @@ interface IpApiResponse {
   asn?: number | string | null;
 }
 
-export async function fetchNetworkIdentity(): Promise<NetworkIdentity | null> {
-  const read = (body: IpApiResponse): NetworkIdentity | null => {
-    const isp = body.isp ?? body.org ?? null;
-    if (!isp) return null;
-
-    const asn = body.asn ? ` (AS${body.asn})` : "";
-    const locationParts = [body.city, body.country].filter(
-      (part): part is string => typeof part === "string" && part.length > 0,
-    );
-
-    return {
-      name: `${isp}${asn}`,
-      isp,
-      location: locationParts.length > 0 ? locationParts.join(", ") : null,
-      ip: typeof body.ip === "string" ? body.ip : null,
-    };
-  };
-
+async function fetchJson(url: string, timeoutMs = 5000): Promise<unknown | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(`https://ipwho.is/${Date.now()}`, {
-      signal: controller.signal,
-      cache: "no-store",
-    });
-    clearTimeout(timer);
-    if (res.ok) {
-      const body = (await res.json()) as IpWhoIsResponse;
-      if (body.success !== false) {
-        const parsed = read({ ...body, isp: body.connection?.isp ?? null, org: body.connection?.org ?? null, asn: body.connection?.asn ?? null });
-        if (parsed) return parsed;
-      }
-    }
-  } catch {
-    // fall through to the backup provider
-  }
-
-  // Backup provider (ipapi.co) in case the primary lookup is unreachable.
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(`https://ipapi.co/json/?t=${Date.now()}`, {
-      signal: controller.signal,
-      cache: "no-store",
-    });
-    clearTimeout(timer);
+    const res = await fetch(url, { signal: controller.signal, cache: "no-store" });
     if (!res.ok) return null;
-    return read((await res.json()) as IpApiResponse);
+    return await res.json();
   } catch {
     return null;
+  } finally {
+    clearTimeout(timer);
   }
+}
+
+function normalize(body: IpApiResponse): NetworkIdentity | null {
+  const isp = body.isp ?? body.org ?? null;
+  if (!isp) return null;
+
+  const asn = body.asn ? ` (AS${body.asn})` : "";
+  const locationParts = [body.city, body.country].filter(
+    (part): part is string => typeof part === "string" && part.length > 0,
+  );
+
+  return {
+    name: `${isp}${asn}`,
+    isp,
+    location: locationParts.length > 0 ? locationParts.join(", ") : null,
+    ip: typeof body.ip === "string" ? body.ip : null,
+  };
+}
+
+/**
+ * Resolve the network's real identity (the operator of the public IP that
+ * carries the measurement). Browsers cannot read the Wi-Fi SSID, so three
+ * free IP-lookup providers are tried in order — if every one is blocked the
+ * UI shows "unknown" instead of a fabricated name.
+ */
+export async function fetchNetworkIdentity(): Promise<NetworkIdentity | null> {
+  // 1. ipwho.is — org/ISP of the public IP.
+  const ipwho = (await fetchJson(`https://ipwho.is/${Date.now()}`)) as IpWhoIsResponse | null;
+  if (ipwho && ipwho.success !== false) {
+    const parsed = normalize({
+      ip: ipwho.ip,
+      city: ipwho.city,
+      region: ipwho.region,
+      country: ipwho.country,
+      isp: ipwho.connection?.isp ?? null,
+      org: ipwho.connection?.org ?? null,
+      asn: ipwho.connection?.asn ?? null,
+    });
+    if (parsed) return parsed;
+  }
+
+  // 2. ipapi.co backup.
+  const ipapi = (await fetchJson(`https://ipapi.co/json/?t=${Date.now()}`)) as IpApiResponse | null;
+  if (ipapi) {
+    const parsed = normalize(ipapi);
+    if (parsed) return parsed;
+  }
+
+  // 3. geojs.io backup.
+  const geojs = (await fetchJson(`https://get.geojs.io/v1/ip/geo.json?t=${Date.now()}`)) as
+    | { ip?: string; city?: string; region?: string; country?: string; organization_name?: string; organization?: string; asn?: number | string }
+    | null;
+  if (geojs) {
+    const parsed = normalize({
+      ip: geojs.ip,
+      city: geojs.city,
+      region: geojs.region,
+      country: geojs.country,
+      isp: geojs.organization_name ?? geojs.organization ?? null,
+      asn: geojs.asn ?? null,
+    });
+    if (parsed) return parsed;
+  }
+
+  return null;
 }
 
 /** Run the full real-network speed test: latency probes, download, upload. */
