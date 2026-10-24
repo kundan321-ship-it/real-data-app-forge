@@ -206,13 +206,13 @@ interface IpWhoIsResponse {
 
 /** Normalized shape both lookup providers are read through. */
 interface IpApiResponse {
-  ip?: string;
-  city?: string;
-  region?: string;
-  country?: string;
-  isp?: string | null;
-  org?: string | null;
-  asn?: number | string | null;
+  ip?: string | undefined;
+  city?: string | undefined;
+  region?: string | undefined;
+  country?: string | undefined;
+  isp?: string | null | undefined;
+  org?: string | null | undefined;
+  asn?: number | string | null | undefined;
 }
 
 async function fetchJson(url: string, timeoutMs = 5000): Promise<unknown | null> {
@@ -233,7 +233,7 @@ function normalize(body: IpApiResponse): NetworkIdentity | null {
   const isp = body.isp ?? body.org ?? null;
   if (!isp) return null;
 
-  const asn = body.asn ? ` (AS${body.asn})` : "";
+  const asn = body.asn ? ` (AS${String(body.asn).replace(/^AS/i, "")})` : "";
   const locationParts = [body.city, body.country].filter(
     (part): part is string => typeof part === "string" && part.length > 0,
   );
