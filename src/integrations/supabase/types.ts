@@ -29,6 +29,7 @@ export type Database = {
           predicted_label: string | null
           source: string
           upload_mbps: number
+          wifi_ssid: string | null
         }
         Insert: {
           created_at?: string
@@ -44,6 +45,7 @@ export type Database = {
           predicted_label?: string | null
           source?: string
           upload_mbps: number
+          wifi_ssid?: string | null
         }
         Update: {
           created_at?: string
@@ -59,6 +61,7 @@ export type Database = {
           predicted_label?: string | null
           source?: string
           upload_mbps?: number
+          wifi_ssid?: string | null
         }
         Relationships: []
       }
