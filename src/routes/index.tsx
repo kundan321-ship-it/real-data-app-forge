@@ -91,9 +91,12 @@ function Index() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["wifi-measurements"] }),
   });
 
-  // Browser Network Information API estimates (hydration-safe).
+  // Browser Network Information API estimates (hydration-safe), plus the
+  // connected network's name — resolved on load so the user always knows
+  // which network the results belong to.
   useEffect(() => {
     setConn(readConnectionInfo());
+    void fetchNetworkIdentity().then(setNetwork);
   }, []);
 
   // Train the Decision Tree on all labeled measurements collected so far.
@@ -123,11 +126,12 @@ function Index() {
     setSavedId(null);
     setRelabeled(false);
     setLiveDownload(null);
-    setNetwork(null);
+    // Re-resolve in case the user switched to a different Wi-Fi since page
+    // load; keep the previous name if the lookup is blocked.
+    void fetchNetworkIdentity().then((identity) => {
+      if (identity) setNetwork(identity);
+    });
     setPhase("latency");
-    // Resolve which network we are testing (ISP/organization of the public IP)
-    // while the latency probes run — it is saved with the measurement.
-    void fetchNetworkIdentity().then(setNetwork);
     try {
       const result = await runSpeedTest({
         onStage: (stage) => setPhase(stage as Phase),
@@ -212,6 +216,13 @@ function Index() {
               One click measures your actual download, upload, ping, jitter and packet loss — then a
               Decision Tree trained on collected measurements classifies your connection.
             </p>
+            {network ? (
+              <p className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-secondary/60 px-3 py-1.5 text-xs text-muted-foreground">
+                Connected network:
+                <span className="font-medium text-foreground">{network.name}</span>
+                {network.location ? <span>· {network.location}</span> : null}
+              </p>
+            ) : null}
           </div>
           <div className="shrink-0">
             <button
@@ -295,7 +306,7 @@ function Index() {
           <p className="mb-4 text-xs text-muted-foreground">
             Network:{" "}
             <span className="font-medium text-foreground">
-              {network ? network.name : "detecting…"}
+              {network ? network.name : "unknown (network lookup blocked)"}
             </span>
             {network?.location ? <span className="ml-1">· {network.location}</span> : null}
           </p>
