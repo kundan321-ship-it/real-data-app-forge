@@ -320,3 +320,26 @@ export async function runSpeedTest(handlers?: {
 
   return { ...latency, downloadMbps, uploadMbps };
 }
+
+// The Wi-Fi SSID (e.g. "CGC@C4") cannot be read by browsers — it is a
+// security restriction, not a missing API. The user names their network once
+// and the name persists locally, then travels with every saved measurement.
+const SSID_KEY = "wifi-analyzer-ssid";
+
+/** The Wi-Fi name the user assigned to this device's current network (client-only). */
+export function getSavedSsid(): string | null {
+  try {
+    return localStorage.getItem(SSID_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Remember the user-supplied Wi-Fi name on this device (client-only). */
+export function saveSsid(name: string): void {
+  try {
+    localStorage.setItem(SSID_KEY, name);
+  } catch {
+    // Local storage blocked — the name simply won't persist.
+  }
+}

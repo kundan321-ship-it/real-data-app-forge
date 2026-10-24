@@ -6,6 +6,8 @@ import {
   runSpeedTest,
   readConnectionInfo,
   fetchNetworkIdentity,
+  getSavedSsid,
+  saveSsid,
   type TestStage,
   type SpeedTestResult,
   type ConnectionInfo,
@@ -80,6 +82,9 @@ function Index() {
   const [prediction, setPrediction] = useState<Prediction | null>(null);
   const [conn, setConn] = useState<ConnectionInfo | null>(null);
   const [network, setNetwork] = useState<NetworkIdentity | null>(null);
+  const [ssid, setSsid] = useState<string | null>(null);
+  const [ssidDraft, setSsidDraft] = useState("");
+  const [editingSsid, setEditingSsid] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [relabeled, setRelabeled] = useState(false);
@@ -97,7 +102,20 @@ function Index() {
   useEffect(() => {
     setConn(readConnectionInfo());
     void fetchNetworkIdentity().then(setNetwork);
+    const saved = getSavedSsid();
+    setSsid(saved);
+    if (!saved) setEditingSsid(true);
   }, []);
+
+  // Browsers cannot read the SSID, so the user assigns a name to their
+  // network once — it is remembered on this device and saved with each run.
+  function applySsid() {
+    const name = ssidDraft.trim().slice(0, 60);
+    if (!name) return;
+    saveSsid(name);
+    setSsid(name);
+    setEditingSsid(false);
+  }
 
   // Train the Decision Tree on all labeled measurements collected so far.
   const labeled = useMemo(
@@ -155,6 +173,7 @@ function Index() {
           downlinkEstimateMbps: conn?.downlinkMbps ?? null,
           effectiveType: conn?.effectiveType ?? null,
           networkName: network?.name ?? null,
+          wifiSsid: ssid,
           predictedLabel: predicted.label,
           source: "auto-test",
         },
@@ -179,6 +198,7 @@ function Index() {
           downlinkEstimateMbps: conn?.downlinkMbps ?? null,
           effectiveType: conn?.effectiveType ?? null,
           networkName: network?.name ?? null,
+          wifiSsid: ssid,
           label,
           source: "user-labeled",
         },

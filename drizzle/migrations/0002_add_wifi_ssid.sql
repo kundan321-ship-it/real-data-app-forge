@@ -1,0 +1,2 @@
+ALTER TABLE public.wifi_measurements ADD COLUMN wifi_ssid TEXT;
+COMMENT ON COLUMN public.wifi_measurements.wifi_ssid IS 'User-supplied Wi-Fi (SSID) name — browsers cannot read the SSID, so the user names their network once and it is stored with each run.';
