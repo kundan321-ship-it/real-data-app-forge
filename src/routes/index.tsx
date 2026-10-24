@@ -131,6 +131,7 @@ function Index() {
     void fetchNetworkIdentity().then((identity) => {
       if (identity) setNetwork(identity);
     });
+    setPhase("latency");
     try {
       const result = await runSpeedTest({
         onStage: (stage) => setPhase(stage as Phase),
@@ -215,6 +216,13 @@ function Index() {
               One click measures your actual download, upload, ping, jitter and packet loss — then a
               Decision Tree trained on collected measurements classifies your connection.
             </p>
+            {network ? (
+              <p className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-secondary/60 px-3 py-1.5 text-xs text-muted-foreground">
+                Connected network:
+                <span className="font-medium text-foreground">{network.name}</span>
+                {network.location ? <span>· {network.location}</span> : null}
+              </p>
+            ) : null}
           </div>
           <div className="shrink-0">
             <button
@@ -298,7 +306,7 @@ function Index() {
           <p className="mb-4 text-xs text-muted-foreground">
             Network:{" "}
             <span className="font-medium text-foreground">
-              {network ? network.name : "detecting…"}
+              {network ? network.name : "unknown (network lookup blocked)"}
             </span>
             {network?.location ? <span className="ml-1">· {network.location}</span> : null}
           </p>
