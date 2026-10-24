@@ -91,9 +91,12 @@ function Index() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["wifi-measurements"] }),
   });
 
-  // Browser Network Information API estimates (hydration-safe).
+  // Browser Network Information API estimates (hydration-safe), plus the
+  // connected network's name — resolved on load so the user always knows
+  // which network the results belong to.
   useEffect(() => {
     setConn(readConnectionInfo());
+    void fetchNetworkIdentity().then(setNetwork);
   }, []);
 
   // Train the Decision Tree on all labeled measurements collected so far.
@@ -123,11 +126,11 @@ function Index() {
     setSavedId(null);
     setRelabeled(false);
     setLiveDownload(null);
-    setNetwork(null);
-    setPhase("latency");
-    // Resolve which network we are testing (ISP/organization of the public IP)
-    // while the latency probes run — it is saved with the measurement.
-    void fetchNetworkIdentity().then(setNetwork);
+    // Re-resolve in case the user switched to a different Wi-Fi since page
+    // load; keep the previous name if the lookup is blocked.
+    void fetchNetworkIdentity().then((identity) => {
+      if (identity) setNetwork(identity);
+    });
     try {
       const result = await runSpeedTest({
         onStage: (stage) => setPhase(stage as Phase),
