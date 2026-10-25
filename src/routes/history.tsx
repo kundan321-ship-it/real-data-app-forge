@@ -192,7 +192,20 @@ function HistoryPage() {
                     <td className="px-4 py-2.5 font-sans text-xs text-muted-foreground">
                       {fmtWhen(row.createdAt)}
                     </td>
-                    <td className="px-4 py-2.5 text-foreground">{row.networkName ?? "—"}</td>
+                    <td className="px-4 py-2.5 text-foreground">
+                      {row.wifiSsid ? (
+                        <span className="font-sans font-medium">
+                          {row.wifiSsid}
+                          {row.networkName ? (
+                            <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">
+                              {row.networkName}
+                            </span>
+                          ) : null}
+                        </span>
+                      ) : (
+                        row.networkName ?? "—"
+                      )}
+                    </td>
                     <td className="px-4 py-2.5 text-foreground">{fmt(row.downloadMbps)}</td>
                     <td className="px-4 py-2.5 text-foreground">{fmt(row.uploadMbps)}</td>
                     <td className="px-4 py-2.5 text-foreground">{fmt(row.pingMs, 0)}</td>
