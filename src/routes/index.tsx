@@ -236,13 +236,46 @@ function Index() {
               One click measures your actual download, upload, ping, jitter and packet loss — then a
               Decision Tree trained on collected measurements classifies your connection.
             </p>
-            {network ? (
-              <p className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-secondary/60 px-3 py-1.5 text-xs text-muted-foreground">
-                Connected network:
-                <span className="font-medium text-foreground">{network.name}</span>
-                {network.location ? <span>· {network.location}</span> : null}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <p className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-secondary/60 px-3 py-1.5 text-xs text-muted-foreground">
+                Wi-Fi name:
+                <span className="font-medium text-foreground">{ssid ?? "not set yet"}</span>
+                {network?.name ? <span>· ISP: {network.name}</span> : null}
+                {network?.location ? <span>· {network.location}</span> : null}
               </p>
-            ) : null}
+              {editingSsid ? (
+                <>
+                  <input
+                    value={ssidDraft}
+                    onChange={(e) => setSsidDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") applySsid();
+                    }}
+                    placeholder="e.g. CGC@C4"
+                    maxLength={60}
+                    aria-label="Wi-Fi name"
+                    className="h-8 w-44 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground outline-none focus:border-primary placeholder:text-muted-foreground/50"
+                  />
+                  <button
+                    onClick={applySsid}
+                    disabled={!ssidDraft.trim()}
+                    className="h-8 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    Save name
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => {
+                    setSsidDraft(ssid ?? "");
+                    setEditingSsid(true);
+                  }}
+                  className="h-8 rounded-lg border border-border bg-secondary px-3 text-xs font-semibold text-foreground transition-colors hover:bg-secondary/80"
+                >
+                  Change
+                </button>
+              )}
+            </div>
           </div>
           <div className="shrink-0">
             <button
@@ -255,9 +288,9 @@ function Index() {
               </span>
               {testing ? "Measuring…" : phase === "done" ? "Run again" : "Start Wi-Fi Test"}
             </button>
-            {network ? (
+            {ssid || network ? (
               <p className="mt-2 text-center text-xs text-muted-foreground">
-                Testing: <span className="font-medium text-foreground">{network.name}</span>
+                Testing: <span className="font-medium text-foreground">{ssid ?? network?.name}</span>
               </p>
             ) : null}
           </div>
@@ -324,11 +357,9 @@ function Index() {
         <section className="rounded-2xl border border-border bg-card p-6 sm:p-8">
           <SectionTitle kicker="ML prediction">Wi-Fi performance</SectionTitle>
           <p className="mb-4 text-xs text-muted-foreground">
-            Network:{" "}
-            <span className="font-medium text-foreground">
-              {network ? network.name : "unknown (network lookup blocked)"}
-            </span>
-            {network?.location ? <span className="ml-1">· {network.location}</span> : null}
+            Wi-Fi: <span className="font-medium text-foreground">{ssid ?? "not set yet"}</span>
+            {network?.name ? <span className="ml-1.5">· {network.name}</span> : null}
+            {network?.location ? <span className="ml-1.5">· {network.location}</span> : null}
           </p>
           {prediction ? (
             <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
@@ -424,7 +455,11 @@ function Index() {
                   </p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
                     {fmtWhen(row.createdAt)}
-                    {row.networkName ? ` · ${row.networkName}` : ""}
+                    {row.wifiSsid
+                      ? ` · ${row.wifiSsid}`
+                      : row.networkName
+                        ? ` · ${row.networkName}`
+                        : ""}
                     {row.label ? ` · labeled ${row.label.toLowerCase()}` : ""}
                   </p>
                 </div>
