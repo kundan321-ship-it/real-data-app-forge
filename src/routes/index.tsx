@@ -399,6 +399,55 @@ function Index() {
         ) : null}
       </section>
 
+      {/* Background auto-testing */}
+      <section className="rounded-2xl border border-border bg-card p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <SectionTitle kicker="Hands-free">Background testing</SectionTitle>
+            <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+              Turn it on and leave this tab open (pin it in the browser) — the app measures your
+              network on its own and saves every run automatically. History keeps the last 7 days.
+              Each run transfers about 31 MB.
+            </p>
+            {autoOn ? (
+              <p className="mt-2 flex items-center gap-2 text-xs font-medium text-primary">
+                <span className="animate-signal h-2 w-2 rounded-full bg-primary" />
+                Auto-testing is ON
+                {autoCountdown !== null ? (
+                  <span className="text-muted-foreground">
+                    · next run in {formatCountdown(autoCountdown)} · every {autoMins} min
+                  </span>
+                ) : null}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <select
+              value={autoMins}
+              onChange={(e) => changeAutoMins(Number(e.target.value))}
+              aria-label="Auto-test interval"
+              className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
+            >
+              {[15, 30, 60].map((mins) => (
+                <option key={mins} value={mins}>
+                  Every {mins} min
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={toggleAuto}
+              className={
+                autoOn
+                  ? "h-10 rounded-lg border border-primary/50 bg-primary/10 px-4 text-sm font-semibold text-primary transition-colors hover:bg-primary/20"
+                  : "h-10 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+              }
+            >
+              {autoOn ? "Turn off" : "Turn on"}
+            </button>
+          </div>
+        </div>
+      </section>
+
       {error ? (
         <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error}
