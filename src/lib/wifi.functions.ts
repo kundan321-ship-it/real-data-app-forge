@@ -71,12 +71,16 @@ function mapRow(row: MeasurementRow): MeasurementDTO {
   };
 }
 
-/** Latest measurements (public data — narrow anon SELECT policy applies). */
+/** Latest measurements (public data — narrow anon SELECT policy applies).
+ * History keeps the last 7 days: older rows are filtered here and deleted
+ * daily by the cleanup-history schedule. */
 export const getMeasurements = createServerFn({ method: "GET" }).handler(async () => {
   const supabasePublic = getPublicClient();
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const { data, error } = await supabasePublic
     .from("wifi_measurements")
     .select("*")
+    .gte("created_at", since)
     .order("created_at", { ascending: false })
     .limit(500);
   if (error) throw new Error(error.message);
