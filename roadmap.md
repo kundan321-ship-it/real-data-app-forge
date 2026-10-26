@@ -12,4 +12,4 @@
 - [x] Auto-detect the network name (no manual save needed) and adopt it for every run
 - [x] Background auto-testing: keep the tab open and the app measures + saves automatically on a timer
 - [x] History retention: keep only the last 7 days of runs
-- [ ] End-to-end verification (auto-run fires and saves, auto name adopted, retention schedule active)
+- [x] End-to-end verification (auto-run fires and saves, auto name adopted, retention schedule active)
