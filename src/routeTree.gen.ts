@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as ModelRouteImport } from './routes/model'
+import { Route as ApiPublicJobsCleanupHistoryRouteImport } from './routes/api/public/jobs/cleanup-history'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,35 +29,50 @@ const ModelRoute = ModelRouteImport.update({
   path: '/model',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicJobsCleanupHistoryRoute =
+  ApiPublicJobsCleanupHistoryRouteImport.update({
+    id: '/api/public/jobs/cleanup-history',
+    path: '/api/public/jobs/cleanup-history',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/history': typeof HistoryRoute
   '/model': typeof ModelRoute
+  '/api/public/jobs/cleanup-history': typeof ApiPublicJobsCleanupHistoryRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/history': typeof HistoryRoute
   '/model': typeof ModelRoute
+  '/api/public/jobs/cleanup-history': typeof ApiPublicJobsCleanupHistoryRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/history': typeof HistoryRoute
   '/model': typeof ModelRoute
+  '/api/public/jobs/cleanup-history': typeof ApiPublicJobsCleanupHistoryRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/history' | '/model'
+  fullPaths: '/' | '/history' | '/model' | '/api/public/jobs/cleanup-history'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/history' | '/model'
-  id: '__root__' | '/' | '/history' | '/model'
+  to: '/' | '/history' | '/model' | '/api/public/jobs/cleanup-history'
+  id:
+    | '__root__'
+    | '/'
+    | '/history'
+    | '/model'
+    | '/api/public/jobs/cleanup-history'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   HistoryRoute: typeof HistoryRoute
   ModelRoute: typeof ModelRoute
+  ApiPublicJobsCleanupHistoryRoute: typeof ApiPublicJobsCleanupHistoryRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,6 +98,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ModelRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/jobs/cleanup-history': {
+      id: '/api/public/jobs/cleanup-history'
+      path: '/api/public/jobs/cleanup-history'
+      fullPath: '/api/public/jobs/cleanup-history'
+      preLoaderRoute: typeof ApiPublicJobsCleanupHistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -89,6 +112,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   HistoryRoute: HistoryRoute,
   ModelRoute: ModelRoute,
+  ApiPublicJobsCleanupHistoryRoute: ApiPublicJobsCleanupHistoryRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

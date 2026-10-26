@@ -142,7 +142,7 @@ function HistoryPage() {
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Collected data</p>
         <h1 className="mt-1 font-display text-3xl font-bold tracking-tight text-foreground">Measurement history</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Every run below is a real network measurement stored in the cloud database.
+          Every run below is a real network measurement stored in the cloud database — history keeps the last 7 days.
         </p>
       </div>
 
@@ -191,6 +191,11 @@ function HistoryPage() {
                   <tr key={row.id} className="border-b border-border/60 last:border-0">
                     <td className="px-4 py-2.5 font-sans text-xs text-muted-foreground">
                       {fmtWhen(row.createdAt)}
+                      {row.source === "background-auto" ? (
+                        <span className="ml-1.5 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                          auto
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-4 py-2.5 text-foreground">
                       {row.wifiSsid ? (
