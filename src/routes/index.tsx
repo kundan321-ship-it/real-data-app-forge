@@ -21,6 +21,13 @@ import {
   type WifiLabel,
 } from "@/lib/decision-tree";
 import { saveMeasurement, type MeasurementDTO } from "@/lib/wifi.functions";
+import {
+  getAutoRunEnabled,
+  getAutoRunInterval,
+  setAutoRunEnabled,
+  setAutoRunInterval,
+  formatCountdown,
+} from "@/lib/auto-run";
 import { measurementsQueryOptions } from "@/lib/queries";
 import { MetricCard, SectionTitle, StatusBadge, RouteError, RouteNotFound, WifiMark } from "@/components/ui-bits";
 
@@ -89,6 +96,11 @@ function Index() {
   const [savedId, setSavedId] = useState<string | null>(null);
   const [relabeled, setRelabeled] = useState(false);
   const runningRef = useRef(false);
+  const [autoOn, setAutoOn] = useState(false);
+  const [autoMins, setAutoMins] = useState(30);
+  const [autoCountdown, setAutoCountdown] = useState<number | null>(null);
+  const nextAutoAtRef = useRef<number | null>(null);
+  const runAndSaveRef = useRef<((source: "auto-test" | "background-auto") => Promise<boolean>) | null>(null);
 
   const saveRow = useServerFn(saveMeasurement);
   const saveMutation = useMutation({
@@ -101,10 +113,23 @@ function Index() {
   // which network the results belong to.
   useEffect(() => {
     setConn(readConnectionInfo());
-    void fetchNetworkIdentity().then(setNetwork);
     const saved = getSavedSsid();
     setSsid(saved);
     if (!saved) setEditingSsid(true);
+    // Auto-detect the network's name — no manual save needed. Unless the user
+    // already named their Wi-Fi, the resolved operator name is adopted as the
+    // network name shown and saved with every run.
+    void fetchNetworkIdentity().then((identity) => {
+      if (!identity) return;
+      setNetwork(identity);
+      if (!getSavedSsid()) {
+        saveSsid(identity.name);
+        setSsid(identity.name);
+        setEditingSsid(false);
+      }
+    });
+    setAutoMins(getAutoRunInterval());
+    setAutoOn(getAutoRunEnabled());
   }, []);
 
   // Browsers cannot read the SSID, so the user assigns a name to their
@@ -135,8 +160,8 @@ function Index() {
   const tree = useMemo(() => trainTree(labeled), [labeled]);
   const modelReady = labeled.length >= 10;
 
-  async function startTest() {
-    if (runningRef.current) return;
+  async function runAndSave(source: "auto-test" | "background-auto") {
+    if (runningRef.current) return false;
     runningRef.current = true;
     setError(null);
     setMetrics(null);
@@ -175,14 +200,16 @@ function Index() {
           networkName: network?.name ?? null,
           wifiSsid: ssid,
           predictedLabel: predicted.label,
-          source: "auto-test",
+          source,
         },
       });
       setSavedId(saved.id);
       setPhase("done");
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "The test failed. Please try again.");
       setPhase("error");
+      return false;
     } finally {
       runningRef.current = false;
     }
@@ -207,6 +234,55 @@ function Index() {
       setRelabeled(false);
       setError("Could not save your correction. Try again.");
     }
+  }
+
+  const startTest = () => void runAndSave("auto-test");
+  runAndSaveRef.current = runAndSave;
+
+  // Background auto-testing: while this tab stays open the app measures the
+  // network on its own every N minutes and saves each run automatically.
+  useEffect(() => {
+    if (!autoOn) {
+      nextAutoAtRef.current = null;
+      setAutoCountdown(null);
+      return;
+    }
+    if (nextAutoAtRef.current === null) {
+      nextAutoAtRef.current = Date.now(); // first auto run fires right away
+    }
+    const tick = () => {
+      const dueAt = nextAutoAtRef.current ?? Date.now();
+      const remaining = Math.max(0, dueAt - Date.now());
+      setAutoCountdown(Math.ceil(remaining / 1000));
+      if (remaining <= 0 && !runningRef.current) {
+        nextAutoAtRef.current = Date.now() + autoMins * 60_000;
+        void runAndSaveRef.current?.("background-auto");
+      }
+    };
+    tick();
+    const interval = window.setInterval(tick, 1000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") tick();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [autoOn, autoMins]);
+
+  function toggleAuto() {
+    const next = !autoOn;
+    setAutoOn(next);
+    setAutoRunEnabled(next);
+    nextAutoAtRef.current = next ? Date.now() : null;
+    if (!next) setAutoCountdown(null);
+  }
+
+  function changeAutoMins(minutes: number) {
+    setAutoMins(minutes);
+    setAutoRunInterval(minutes);
+    if (autoOn) nextAutoAtRef.current = Date.now() + minutes * 60_000;
   }
 
   const testing = phase === "latency" || phase === "download" || phase === "upload" || phase === "analyzing";
