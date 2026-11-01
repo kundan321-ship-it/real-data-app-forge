@@ -104,11 +104,23 @@ const saveInput = z.object({
   source: z.string().max(40).optional(),
 });
 
-/** Persist a measurement run (anon INSERT policy applies). */
+/** Max saved runs accepted per minute across the whole app (rate limiting).
+ * The history page reads at most a few hundred rows per 7 days, so this only
+ * trips when something spams the endpoint. */
+const MAX_SAVES_PER_MINUTE = 60;
+
+/** Persist a measurement run (validated INSERT policy + rate limit apply). */
 export const saveMeasurement = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => saveInput.parse(input))
   .handler(async ({ data }) => {
     const supabasePublic = getPublicClient();
+    const { count } = await supabasePublic
+      .from("wifi_measurements")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", new Date(Date.now() - 60_000).toISOString());
+    if ((count ?? 0) >= MAX_SAVES_PER_MINUTE) {
+      throw new Error("Too many runs saved in the last minute — please wait a moment and try again.");
+    }
     const { data: inserted, error } = await supabasePublic
       .from("wifi_measurements")
       .insert({
