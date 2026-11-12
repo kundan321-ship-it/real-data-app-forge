@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       wifi_measurements: {
         Row: {
           created_at: string
@@ -29,6 +50,7 @@ export type Database = {
           predicted_label: string | null
           source: string
           upload_mbps: number
+          user_id: string | null
           wifi_ssid: string | null
         }
         Insert: {
@@ -45,6 +67,7 @@ export type Database = {
           predicted_label?: string | null
           source?: string
           upload_mbps: number
+          user_id?: string | null
           wifi_ssid?: string | null
         }
         Update: {
@@ -61,6 +84,7 @@ export type Database = {
           predicted_label?: string | null
           source?: string
           upload_mbps?: number
+          user_id?: string | null
           wifi_ssid?: string | null
         }
         Relationships: []
