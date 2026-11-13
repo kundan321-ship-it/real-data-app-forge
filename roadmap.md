@@ -13,3 +13,6 @@
 - [x] Background auto-testing: keep the tab open and the app measures + saves automatically on a timer
 - [x] History retention: keep only the last 7 days of runs
 - [x] End-to-end verification (auto-run fires and saves, auto name adopted, retention schedule active)
+- [x] Restrict measurement history and saves to signed-in account owners; keep legacy anonymous rows private
+- [x] Add email/password account access, display-name profile records, and session-aware sign-out
+- [ ] Verify the owner-only database policies and authenticated app flow; mark only the selected security finding fixed

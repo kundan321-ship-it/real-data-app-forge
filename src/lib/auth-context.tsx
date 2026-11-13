@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { User } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 
 interface AuthValue {
@@ -13,6 +14,7 @@ const AuthContext = createContext<AuthValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -21,10 +23,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       const nextUser = session?.user ?? null;
-      setUser((currentUser) => {
-        if (currentUser?.id !== nextUser?.id) queryClient.clear();
-        return nextUser;
-      });
+      setUser((currentUser) => currentUser?.id === nextUser?.id ? currentUser : nextUser);
+      queryClient.clear();
+      void router.invalidate();
+      if (event !== "SIGNED_OUT") void queryClient.invalidateQueries();
       setLoading(false);
     });
 
@@ -39,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       active = false;
       listener.subscription.unsubscribe();
     };
-  }, [queryClient]);
+  }, [queryClient, router]);
 
   async function signOut() {
     await queryClient.cancelQueries();

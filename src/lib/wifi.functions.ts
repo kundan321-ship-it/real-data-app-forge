@@ -96,11 +96,11 @@ export const saveMeasurement = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => saveInput.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    // Preserve the existing app-wide save cap without reading measurement payloads.
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { count } = await supabaseAdmin
+    // Count only this account's recent writes; RLS keeps the count private too.
+    const { count } = await supabase
       .from("wifi_measurements")
       .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
       .gte("created_at", new Date(Date.now() - 60_000).toISOString());
     if ((count ?? 0) >= MAX_SAVES_PER_MINUTE) {
       throw new Error("Too many runs saved in the last minute — please wait a moment and try again.");

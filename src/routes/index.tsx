@@ -107,8 +107,6 @@ function Index() {
   const nextAutoAtRef = useRef<number | null>(null);
   const runAndSaveRef = useRef<((source: "auto-test" | "background-auto") => Promise<boolean>) | null>(null);
 
-  const savedOwnerId = user?.id ?? null;
-
   const saveRow = useServerFn(saveMeasurement);
   const saveMutation = useMutation({
     mutationFn: saveRow,
@@ -249,7 +247,7 @@ function Index() {
   // Background auto-testing: while this tab stays open the app measures the
   // network on its own every N minutes and saves each run automatically.
   useEffect(() => {
-    if (!autoOn) {
+    if (!user || !autoOn) {
       nextAutoAtRef.current = null;
       setAutoCountdown(null);
       return;
@@ -276,7 +274,7 @@ function Index() {
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [autoOn, autoMins]);
+  }, [autoOn, autoMins, user]);
 
   function toggleAuto() {
     const next = !autoOn;
