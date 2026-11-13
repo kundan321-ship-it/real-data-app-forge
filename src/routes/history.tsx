@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { createFileRoute, useLoaderData } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import {
   CartesianGrid,
   Line,
@@ -11,6 +12,8 @@ import {
 } from "recharts";
 import type { MeasurementDTO } from "@/lib/wifi.functions";
 import { SectionTitle, RouteError, RouteNotFound, StatusBadge } from "@/components/ui-bits";
+import { AuthRequired } from "@/components/auth-required";
+import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/history")({
   head: () => ({
@@ -29,16 +32,12 @@ export const Route = createFileRoute("/history")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(measurementsQueryOptionsForHistory()),
   component: HistoryPage,
   errorComponent: ({ error, reset }) => <RouteError error={error as Error} reset={reset} />,
   notFoundComponent: RouteNotFound,
 });
 
 import { measurementsQueryOptions } from "@/lib/queries";
-function measurementsQueryOptionsForHistory() {
-  return measurementsQueryOptions();
-}
 
 function fmt(n: number, digits = 1): string {
   return Number.isFinite(n) ? n.toFixed(digits) : "—";
@@ -125,7 +124,11 @@ function DownloadTrend({ data }: { data: MeasurementDTO[] }) {
 }
 
 function HistoryPage() {
-  const data = useLoaderData({ from: "/history" }) as MeasurementDTO[];
+  const { user, loading } = useAuth();
+  const { data = [] } = useQuery({
+    ...measurementsQueryOptions(user?.id ?? "signed-out"),
+    enabled: Boolean(user),
+  });
 
   const labeledCounts = useMemo(() => {
     const counts = { Good: 0, Average: 0, Poor: 0 };
@@ -135,6 +138,9 @@ function HistoryPage() {
     }
     return counts;
   }, [data]);
+
+  if (loading) return <p role="status" className="py-12 text-center text-sm text-muted-foreground">Checking your account…</p>;
+  if (!user) return <AuthRequired />;
 
   return (
     <div className="space-y-8">

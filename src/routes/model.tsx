@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { createFileRoute, useLoaderData } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import {
   evaluateTree,
   keyRules,
@@ -9,6 +10,8 @@ import {
 } from "@/lib/decision-tree";
 import type { MeasurementDTO } from "@/lib/wifi.functions";
 import { SectionTitle, RouteError, RouteNotFound } from "@/components/ui-bits";
+import { AuthRequired } from "@/components/auth-required";
+import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/model")({
   head: () => ({
@@ -29,16 +32,12 @@ export const Route = createFileRoute("/model")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(measurementsQueryOptionsForModel()),
   component: ModelPage,
   errorComponent: ({ error, reset }) => <RouteError error={error as Error} reset={reset} />,
   notFoundComponent: RouteNotFound,
 });
 
 import { measurementsQueryOptions } from "@/lib/queries";
-function measurementsQueryOptionsForModel() {
-  return measurementsQueryOptions();
-}
 
 const featureLabels: Record<string, string> = {
   downloadMbps: "Download speed",
@@ -62,7 +61,11 @@ function fmtWhen(iso: string): string {
 }
 
 function ModelPage() {
-  const data = useLoaderData({ from: "/model" }) as MeasurementDTO[];
+  const { user, loading } = useAuth();
+  const { data = [] } = useQuery({
+    ...measurementsQueryOptions(user?.id ?? "signed-out"),
+    enabled: Boolean(user),
+  });
   const [seed, setSeed] = useState(42);
 
   const labeled: LabeledSample[] = useMemo(
@@ -100,6 +103,9 @@ function ModelPage() {
     }
     return latest;
   }, [data]);
+
+  if (loading) return <p role="status" className="py-12 text-center text-sm text-muted-foreground">Checking your account…</p>;
+  if (!user) return <AuthRequired />;
 
   return (
     <div className="space-y-8">
