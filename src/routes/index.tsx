@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createFileRoute, useLoaderData } from "@tanstack/react-router";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   runSpeedTest,
@@ -30,6 +30,8 @@ import {
 } from "@/lib/auto-run";
 import { measurementsQueryOptions } from "@/lib/queries";
 import { MetricCard, SectionTitle, StatusBadge, RouteError, RouteNotFound, WifiMark } from "@/components/ui-bits";
+import { AuthRequired } from "@/components/auth-required";
+import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -50,7 +52,6 @@ export const Route = createFileRoute("/")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(measurementsQueryOptions()),
   component: Index,
   errorComponent: ({ error, reset }) => <RouteError error={error as Error} reset={reset} />,
   notFoundComponent: RouteNotFound,
@@ -80,7 +81,11 @@ function fmtWhen(iso: string): string {
 }
 
 function Index() {
-  const data = useLoaderData({ from: "/" }) as MeasurementDTO[];
+  const { user, loading: authLoading } = useAuth();
+  const { data = [] } = useQuery({
+    ...measurementsQueryOptions(user?.id ?? "signed-out"),
+    enabled: Boolean(user),
+  });
   const queryClient = useQueryClient();
 
   const [phase, setPhase] = useState<Phase>("idle");
@@ -101,6 +106,8 @@ function Index() {
   const [autoCountdown, setAutoCountdown] = useState<number | null>(null);
   const nextAutoAtRef = useRef<number | null>(null);
   const runAndSaveRef = useRef<((source: "auto-test" | "background-auto") => Promise<boolean>) | null>(null);
+
+  const savedOwnerId = user?.id ?? null;
 
   const saveRow = useServerFn(saveMeasurement);
   const saveMutation = useMutation({
@@ -287,6 +294,11 @@ function Index() {
 
   const testing = phase === "latency" || phase === "download" || phase === "upload" || phase === "analyzing";
   const busy = testing || phase === "done";
+
+  if (authLoading) {
+    return <p role="status" className="py-12 text-center text-sm text-muted-foreground">Checking your account…</p>;
+  }
+  if (!user) return <AuthRequired />;
 
   return (
     <div className="space-y-10">

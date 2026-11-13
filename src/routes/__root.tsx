@@ -9,6 +9,9 @@ import {
   type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { Button } from "@/components/ui/button";
+import { AuthProvider, useAuth } from "@/lib/auth-context";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -116,6 +119,14 @@ function NavLink({ to, children }: { to: string; children: ReactNode }) {
 }
 
 function SiteHeader() {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  async function handleSignOut() {
+    await signOut();
+    await navigate({ to: "/auth", replace: true });
+  }
+
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
@@ -129,6 +140,15 @@ function SiteHeader() {
           <NavLink to="/">Live Test</NavLink>
           <NavLink to="/history">History</NavLink>
           <NavLink to="/model">ML Model</NavLink>
+          {user ? (
+            <Button variant="ghost" size="sm" onClick={() => void handleSignOut()} title={user.email ?? "Signed in"}>
+              Sign out
+            </Button>
+          ) : (
+            <Button asChild variant="outline" size="sm">
+              <Link to="/auth">Sign in</Link>
+            </Button>
+          )}
         </nav>
       </div>
     </header>
@@ -154,18 +174,20 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="app-backdrop min-h-screen">
-        <SiteHeader />
-        <main className="mx-auto max-w-6xl px-4 pb-16 pt-8">
-          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-          <Outlet />
-        </main>
-        <footer className="border-t border-border py-6">
-          <p className="mx-auto max-w-6xl px-4 text-center text-xs text-muted-foreground">
-            College Wi-Fi Performance Classifier · Real-time measurement + Decision Tree ML
-          </p>
-        </footer>
-      </div>
+      <AuthProvider>
+        <div className="app-backdrop min-h-screen">
+          <SiteHeader />
+          <main className="mx-auto max-w-6xl px-4 pb-16 pt-8">
+            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+            <Outlet />
+          </main>
+          <footer className="border-t border-border py-6">
+            <p className="mx-auto max-w-6xl px-4 text-center text-xs text-muted-foreground">
+              College Wi-Fi Performance Classifier · Real-time measurement + Decision Tree ML
+            </p>
+          </footer>
+        </div>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
