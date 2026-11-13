@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { createClient } from "@supabase/supabase-js";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export type WifiLabel = "Good" | "Average" | "Poor";
 
@@ -19,25 +19,6 @@ export interface MeasurementDTO {
   label: WifiLabel | null;
   predictedLabel: WifiLabel | null;
   source: string;
-}
-
-function getPublicClient() {
-  const key = process.env["SUPABASE_PUBLISHABLE_KEY"]!;
-  const supabasePublic = createClient(process.env["SUPABASE_URL"]!, key, {
-    auth: { persistSession: false, autoRefreshToken: false, storage: undefined },
-    // Opaque sb_ keys aren't JWTs; send only apikey, not the default Authorization bearer.
-    global: {
-      fetch: (input, init) => {
-        const headers = new Headers(init?.headers);
-        if (key.startsWith("sb_") && headers.get("Authorization") === `Bearer ${key}`) {
-          headers.delete("Authorization");
-        }
-        headers.set("apikey", key);
-        return fetch(input, { ...init, headers });
-      },
-    },
-  });
-  return supabasePublic;
 }
 
 function toNumber(value: unknown): number | null {
@@ -71,13 +52,13 @@ function mapRow(row: MeasurementRow): MeasurementDTO {
   };
 }
 
-/** Latest measurements (public data — narrow anon SELECT policy applies).
- * History keeps the last 7 days: older rows are filtered here and deleted
- * daily by the cleanup-history schedule. */
-export const getMeasurements = createServerFn({ method: "GET" }).handler(async () => {
-  const supabasePublic = getPublicClient();
+/** Each account can only read its own measurements; RLS enforces ownership. */
+export const getMeasurements = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+  const { supabase } = context;
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const { data, error } = await supabasePublic
+  const { data, error } = await supabase
     .from("wifi_measurements")
     .select("*")
     .gte("created_at", since)
@@ -109,21 +90,25 @@ const saveInput = z.object({
  * trips when something spams the endpoint. */
 const MAX_SAVES_PER_MINUTE = 60;
 
-/** Persist a measurement run (validated INSERT policy + rate limit apply). */
+/** Persist a measurement for the authenticated account (validation + rate limit apply). */
 export const saveMeasurement = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => saveInput.parse(input))
-  .handler(async ({ data }) => {
-    const supabasePublic = getPublicClient();
-    const { count } = await supabasePublic
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    // Preserve the existing app-wide save cap without reading measurement payloads.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { count } = await supabaseAdmin
       .from("wifi_measurements")
       .select("id", { count: "exact", head: true })
       .gte("created_at", new Date(Date.now() - 60_000).toISOString());
     if ((count ?? 0) >= MAX_SAVES_PER_MINUTE) {
       throw new Error("Too many runs saved in the last minute — please wait a moment and try again.");
     }
-    const { data: inserted, error } = await supabasePublic
+    const { data: inserted, error } = await supabase
       .from("wifi_measurements")
       .insert({
+        user_id: userId,
         download_mbps: data.downloadMbps,
         upload_mbps: data.uploadMbps,
         ping_ms: data.pingMs,
