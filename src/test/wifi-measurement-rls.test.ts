@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  new URL("../../drizzle/migrations/0004_private_wifi_measurement_history.sql", import.meta.url),
+  `${process.cwd()}/drizzle/migrations/0004_private_wifi_measurement_history.sql`,
   "utf8",
 );
 
