@@ -15,4 +15,4 @@
 - [x] End-to-end verification (auto-run fires and saves, auto name adopted, retention schedule active)
 - [x] Restrict measurement history and saves to signed-in account owners; keep legacy anonymous rows private
 - [x] Add email/password account access, display-name profile records, and session-aware sign-out
-- [ ] Verify the owner-only database policies and authenticated app flow; mark only the selected security finding fixed
+- [x] Verify owner-only RLS policies, signed-out route gating, account form, regression tests, and mark only the selected finding fixed
