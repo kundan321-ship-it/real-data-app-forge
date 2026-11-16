@@ -29,7 +29,7 @@ import {
   formatCountdown,
 } from "@/lib/auto-run";
 import { measurementsQueryOptions } from "@/lib/queries";
-import { MetricCard, SectionTitle, StatusBadge, RouteError, RouteNotFound, WifiMark } from "@/components/ui-bits";
+import { MetricCard, SectionTitle, StatusBadge, RouteError, RouteNotFound, WifiMark, MeasurementsUnavailable } from "@/components/ui-bits";
 import { AuthRequired } from "@/components/auth-required";
 import { useAuth } from "@/lib/auth-context";
 
@@ -82,7 +82,7 @@ function fmtWhen(iso: string): string {
 
 function Index() {
   const { user, loading: authLoading } = useAuth();
-  const { data = [] } = useQuery({
+  const { data = [], isError, isFetching, refetch } = useQuery({
     ...measurementsQueryOptions(user?.id ?? "signed-out"),
     enabled: Boolean(user),
   });
@@ -181,6 +181,7 @@ function Index() {
     });
     setPhase("latency");
     try {
+      let saving = false;
       const result = await runSpeedTest({
         onStage: (stage) => setPhase(stage as Phase),
         onLiveDownload: setLiveDownload,
@@ -197,6 +198,7 @@ function Index() {
       }
       setPrediction(predicted);
 
+      saving = true;
       const saved = await saveMutation.mutateAsync({
         data: {
           ...result,
@@ -212,7 +214,7 @@ function Index() {
       setPhase("done");
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "The test failed. Please try again.");
+      setError(err instanceof Error ? err.message : "The test couldn't finish. Check your connection and try again.");
       setPhase("error");
       return false;
     } finally {
@@ -291,12 +293,13 @@ function Index() {
   }
 
   const testing = phase === "latency" || phase === "download" || phase === "upload" || phase === "analyzing";
-  const busy = testing || phase === "done";
+  const busy = testing;
 
   if (authLoading) {
     return <p role="status" className="py-12 text-center text-sm text-muted-foreground">Checking your account…</p>;
   }
   if (!user) return <AuthRequired />;
+  if (isError) return <MeasurementsUnavailable onRetry={() => void refetch()} retrying={isFetching} />;
 
   return (
     <div className="space-y-10">
