@@ -88,10 +88,16 @@ async function measureLatency(): Promise<LatencyResult> {
   const samples: number[] = [];
   let failures = 0;
 
-  for (let i = 0; i < LATENCY_PROBES; i++) {
-    const ms = await timedProbe();
-    if (ms === null) failures++;
-    else samples.push(ms);
+  // Run three probes at once: keeps the ping phase quick without flooding the
+  // test endpoint with a large burst.
+  for (let offset = 0; offset < LATENCY_PROBES; offset += 3) {
+    const results = await Promise.all(
+      Array.from({ length: Math.min(3, LATENCY_PROBES - offset) }, () => timedProbe()),
+    );
+    for (const ms of results) {
+      if (ms === null) failures++;
+      else samples.push(ms);
+    }
   }
 
   if (samples.length === 0) {
