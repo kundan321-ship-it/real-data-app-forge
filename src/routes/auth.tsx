@@ -58,7 +58,15 @@ function AuthPage() {
         await navigate({ to: "/", replace: true });
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not complete sign-in. Please try again.");
+      const message = cause instanceof Error ? cause.message.toLowerCase() : "";
+      if (message.includes("invalid login credentials")) {
+        setError("That email and password didn't match. Please check them and try again.");
+      } else if (message.includes("already registered") || message.includes("user already exists")) {
+        setError("An account with this email already exists. Please sign in instead.");
+      } else {
+        console.error("[auth] sign-in or account creation failed", cause);
+        setError("We couldn't complete that request. Check your details and connection, then try again.");
+      }
     } finally {
       setBusy(false);
     }

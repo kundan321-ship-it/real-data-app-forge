@@ -11,6 +11,7 @@
 
 ## Architecture rules
 
+- Never render raw database, auth-provider, or server exception text to users; log operational details privately and show a generic retry message so internal errors cannot leak into the interface.
 - Network identity (the "network name" saved with each measurement) is resolved client-side in `src/lib/net-measure.ts` via ipwho.is (ISP/ASN of the public IP, with ipapi.co and geojs.io fallbacks) — browsers cannot read the Wi-Fi SSID. Never fabricate a name: if every lookup fails, show "unknown" in the UI and save null. Why: the app must only show real network data.
 - The network name is auto-detected: on page load the resolved operator name (ISP/ASN) is adopted automatically as the network name (localStorage `wifi-analyzer-ssid` via `saveSsid` in `src/lib/net-measure.ts`) unless the user has typed their own Wi-Fi name (e.g. "CGC@C4"), which always overrides it. The user-set name is never overwritten by a later auto-detect. Why: the user asked for zero manual steps; browsers cannot read the SSID, so the detected operator name is the best real signal and must never be fabricated.
 - Background auto-testing is client-side only (src/lib/auto-run.ts + a timer loop in `src/routes/index.tsx`): while the tab stays open, a measurement runs every 15/30/60 min (localStorage keys `wifi-analyzer-autorun`, `wifi-analyzer-autorun-mins`) and saves with source "background-auto". A server cannot measure the user's Wi-Fi — never move this server-side.
