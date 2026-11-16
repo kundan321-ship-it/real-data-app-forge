@@ -61,7 +61,7 @@ export const getMeasurements = createServerFn({ method: "GET" })
       const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
       const { data, error } = await supabase
         .from("wifi_measurements")
-        .select("*")
+        .select("id, created_at, download_mbps, upload_mbps, ping_ms, jitter_ms, packet_loss_pct, downlink_estimate_mbps, effective_type, network_name, wifi_ssid, label, predicted_label, source")
         .gte("created_at", since)
         .order("created_at", { ascending: false })
         .limit(500);

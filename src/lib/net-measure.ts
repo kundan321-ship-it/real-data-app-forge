@@ -125,6 +125,10 @@ async function measureDownload(
   let bytes = 0;
   let abortedByCap = false;
   const start = performance.now();
+  const timer = setTimeout(() => {
+    abortedByCap = true;
+    controller.abort();
+  }, maxMs);
 
   try {
     const res = await fetch(`${CF_BASE}/__down?bytes=${totalBytes}&t=${Date.now()}`, {
@@ -153,6 +157,8 @@ async function measureDownload(
     if (!abortedByCap && bytes === 0) {
       throw error instanceof Error ? error : new Error("Download test failed. Check your connection.");
     }
+  } finally {
+    clearTimeout(timer);
   }
 
   const elapsedSec = Math.max((performance.now() - start) / 1000, 0.05);
@@ -165,25 +171,24 @@ async function measureUpload(): Promise<number> {
     crypto.getRandomValues(payload.subarray(offset, Math.min(offset + 65536, UPLOAD_BYTES)));
   }
   const start = performance.now();
-  let res: Response;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
   try {
-    res = await fetch(`${CF_BASE}/__up?bytes=${UPLOAD_BYTES}`, {
+    const res = await fetch(`${CF_BASE}/__up?bytes=${UPLOAD_BYTES}`, {
       method: "POST",
       body: payload,
       cache: "no-store",
       signal: controller.signal,
     });
+    if (!res.ok) throw new Error("upload unavailable");
+    await res.arrayBuffer();
+    const elapsedSec = Math.max((performance.now() - start) / 1000, 0.05);
+    return Math.round(((UPLOAD_BYTES * 8) / 1e6 / elapsedSec) * 10) / 10;
   } catch {
     throw new Error("Upload test timed out or was blocked. Check your connection and try again.");
   } finally {
     clearTimeout(timer);
   }
-  if (!res.ok) throw new Error(`Upload test failed (server responded ${res.status}).`);
-  await res.arrayBuffer();
-  const elapsedSec = Math.max((performance.now() - start) / 1000, 0.05);
-  return Math.round(((UPLOAD_BYTES * 8) / 1e6 / elapsedSec) * 10) / 10;
 }
 
 // ============= Network identity =============
