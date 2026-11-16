@@ -181,7 +181,6 @@ function Index() {
     });
     setPhase("latency");
     try {
-      let saving = false;
       const result = await runSpeedTest({
         onStage: (stage) => setPhase(stage as Phase),
         onLiveDownload: setLiveDownload,
@@ -198,7 +197,6 @@ function Index() {
       }
       setPrediction(predicted);
 
-      saving = true;
       const saved = await saveMutation.mutateAsync({
         data: {
           ...result,

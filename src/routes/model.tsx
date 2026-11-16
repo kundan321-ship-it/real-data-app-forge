@@ -9,7 +9,7 @@ import {
   type WifiLabel,
 } from "@/lib/decision-tree";
 import type { MeasurementDTO } from "@/lib/wifi.functions";
-import { SectionTitle, RouteError, RouteNotFound } from "@/components/ui-bits";
+import { SectionTitle, RouteError, RouteNotFound, MeasurementsUnavailable } from "@/components/ui-bits";
 import { AuthRequired } from "@/components/auth-required";
 import { useAuth } from "@/lib/auth-context";
 

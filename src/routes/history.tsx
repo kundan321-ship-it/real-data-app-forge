@@ -11,7 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import type { MeasurementDTO } from "@/lib/wifi.functions";
-import { SectionTitle, RouteError, RouteNotFound, StatusBadge } from "@/components/ui-bits";
+import { SectionTitle, RouteError, RouteNotFound, StatusBadge, MeasurementsUnavailable } from "@/components/ui-bits";
 import { AuthRequired } from "@/components/auth-required";
 import { useAuth } from "@/lib/auth-context";
 
