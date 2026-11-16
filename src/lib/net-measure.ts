@@ -29,11 +29,12 @@ export interface ConnectionInfo {
   rttMs: number | null;
 }
 
-const LATENCY_PROBES = 10;
-const PROBE_TIMEOUT_MS = 4000;
-const DOWNLOAD_BYTES = 25 * 1024 * 1024; // 25 MB
-const DOWNLOAD_MAX_MS = 9000;
-const UPLOAD_BYTES = 6 * 1024 * 1024; // 6 MB
+const LATENCY_PROBES = 6;
+const PROBE_TIMEOUT_MS = 2200;
+const DOWNLOAD_BYTES = 12 * 1024 * 1024; // 12 MB
+const DOWNLOAD_MAX_MS = 7000;
+const UPLOAD_BYTES = 3 * 1024 * 1024; // 3 MB
+const UPLOAD_TIMEOUT_MS = 8000;
 
 /** Read the browser's Network Information API estimates. Browser-only. */
 export function readConnectionInfo(): ConnectionInfo {
@@ -165,14 +166,19 @@ async function measureUpload(): Promise<number> {
   }
   const start = performance.now();
   let res: Response;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
   try {
     res = await fetch(`${CF_BASE}/__up?bytes=${UPLOAD_BYTES}`, {
       method: "POST",
       body: payload,
       cache: "no-store",
+      signal: controller.signal,
     });
   } catch {
-    throw new Error("Upload test failed — the network rejected the upload. Try again.");
+    throw new Error("Upload test timed out or was blocked. Check your connection and try again.");
+  } finally {
+    clearTimeout(timer);
   }
   if (!res.ok) throw new Error(`Upload test failed (server responded ${res.status}).`);
   await res.arrayBuffer();

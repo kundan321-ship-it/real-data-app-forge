@@ -56,17 +56,22 @@ function mapRow(row: MeasurementRow): MeasurementDTO {
 export const getMeasurements = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-  const { supabase } = context;
-  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const { data, error } = await supabase
-    .from("wifi_measurements")
-    .select("*")
-    .gte("created_at", since)
-    .order("created_at", { ascending: false })
-    .limit(500);
-  if (error) throw new Error(error.message);
-  return (data as MeasurementRow[]).map(mapRow);
-});
+    const { supabase } = context;
+    try {
+      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from("wifi_measurements")
+        .select("*")
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      return (data as MeasurementRow[]).map(mapRow);
+    } catch (error) {
+      console.error("[wifi-measurements] read failed", error);
+      throw new Error("Saved measurements could not be loaded. Please try again.");
+    }
+  });
 
 const labelSchema = z.enum(["Good", "Average", "Poor"]);
 
@@ -96,37 +101,45 @@ export const saveMeasurement = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => saveInput.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    // Keep the existing app-wide cap; only the count is used, never row data.
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { count } = await supabaseAdmin
-      .from("wifi_measurements")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", new Date(Date.now() - 60_000).toISOString());
-    if ((count ?? 0) >= MAX_SAVES_PER_MINUTE) {
-      throw new Error("Too many runs saved in the last minute — please wait a moment and try again.");
+    try {
+      // Keep the existing app-wide cap; only the count is used, never row data.
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { count, error: countError } = await supabaseAdmin
+        .from("wifi_measurements")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", new Date(Date.now() - 60_000).toISOString());
+      if (countError) throw countError;
+      if ((count ?? 0) >= MAX_SAVES_PER_MINUTE) throw new Error("SAVE_LIMIT_REACHED");
+
+      const { data: inserted, error } = await supabase
+        .from("wifi_measurements")
+        .insert({
+          user_id: userId,
+          download_mbps: data.downloadMbps,
+          upload_mbps: data.uploadMbps,
+          ping_ms: data.pingMs,
+          jitter_ms: data.jitterMs,
+          packet_loss_pct: data.packetLossPct,
+          downlink_estimate_mbps: data.downlinkEstimateMbps ?? null,
+          effective_type: data.effectiveType ?? null,
+          network_name: data.networkName ?? null,
+          wifi_ssid: data.wifiSsid ?? null,
+          label: data.label ?? null,
+          predicted_label: data.predictedLabel ?? null,
+          source: data.source ?? "browser",
+        })
+        .select("id, created_at")
+        .single();
+      if (error) throw error;
+      return {
+        id: String((inserted as Record<string, unknown>)["id"]),
+        createdAt: String((inserted as Record<string, unknown>)["created_at"]),
+      };
+    } catch (error) {
+      if (error instanceof Error && error.message === "SAVE_LIMIT_REACHED") {
+        throw new Error("Too many runs were saved just now. Please wait a moment and try again.");
+      }
+      console.error("[wifi-measurements] save failed", error);
+      throw new Error("This test could not be saved. Your measurements are safe; please try again.");
     }
-    const { data: inserted, error } = await supabase
-      .from("wifi_measurements")
-      .insert({
-        user_id: userId,
-        download_mbps: data.downloadMbps,
-        upload_mbps: data.uploadMbps,
-        ping_ms: data.pingMs,
-        jitter_ms: data.jitterMs,
-        packet_loss_pct: data.packetLossPct,
-        downlink_estimate_mbps: data.downlinkEstimateMbps ?? null,
-        effective_type: data.effectiveType ?? null,
-        network_name: data.networkName ?? null,
-        wifi_ssid: data.wifiSsid ?? null,
-        label: data.label ?? null,
-        predicted_label: data.predictedLabel ?? null,
-        source: data.source ?? "browser",
-      })
-      .select("id, created_at")
-      .single();
-    if (error) throw new Error(error.message);
-    return {
-      id: String((inserted as Record<string, unknown>)["id"]),
-      createdAt: String((inserted as Record<string, unknown>)["created_at"]),
-    };
   });
