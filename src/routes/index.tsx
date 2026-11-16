@@ -29,7 +29,7 @@ import {
   formatCountdown,
 } from "@/lib/auto-run";
 import { measurementsQueryOptions } from "@/lib/queries";
-import { MetricCard, SectionTitle, StatusBadge, RouteError, RouteNotFound, WifiMark } from "@/components/ui-bits";
+import { MetricCard, SectionTitle, StatusBadge, RouteError, RouteNotFound, WifiMark, MeasurementsUnavailable } from "@/components/ui-bits";
 import { AuthRequired } from "@/components/auth-required";
 import { useAuth } from "@/lib/auth-context";
 
@@ -82,7 +82,7 @@ function fmtWhen(iso: string): string {
 
 function Index() {
   const { user, loading: authLoading } = useAuth();
-  const { data = [] } = useQuery({
+  const { data = [], isError, isFetching, refetch } = useQuery({
     ...measurementsQueryOptions(user?.id ?? "signed-out"),
     enabled: Boolean(user),
   });
@@ -110,7 +110,9 @@ function Index() {
   const saveRow = useServerFn(saveMeasurement);
   const saveMutation = useMutation({
     mutationFn: saveRow,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["wifi-measurements"] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["wifi-measurements"] });
+    },
   });
 
   // Browser Network Information API estimates (hydration-safe), plus the
@@ -212,7 +214,12 @@ function Index() {
       setPhase("done");
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "The test failed. Please try again.");
+      const message = err instanceof Error ? err.message : "";
+      const isExpectedIssue = message.startsWith("Network unreachable")
+        || message.startsWith("Download measurement failed")
+        || message.startsWith("Upload test timed out")
+        || message.startsWith("Too many runs were saved");
+      setError(isExpectedIssue ? message : "We couldn't complete or save this test. Check your connection and try again.");
       setPhase("error");
       return false;
     } finally {
@@ -291,12 +298,13 @@ function Index() {
   }
 
   const testing = phase === "latency" || phase === "download" || phase === "upload" || phase === "analyzing";
-  const busy = testing || phase === "done";
+  const busy = testing;
 
   if (authLoading) {
     return <p role="status" className="py-12 text-center text-sm text-muted-foreground">Checking your account…</p>;
   }
   if (!user) return <AuthRequired />;
+  if (isError) return <MeasurementsUnavailable onRetry={() => void refetch()} retrying={isFetching} />;
 
   return (
     <div className="space-y-10">
@@ -417,7 +425,7 @@ function Index() {
             <p className="mt-2 max-w-xl text-sm text-muted-foreground">
               Turn it on and leave this tab open (pin it in the browser) — the app measures your
               network on its own and saves every run automatically. History keeps the last 7 days.
-              Each run transfers about 31 MB.
+              Each run transfers about 15 MB, with a small retry only if the network stalls.
             </p>
             {autoOn ? (
               <p className="mt-2 flex items-center gap-2 text-xs font-medium text-primary">

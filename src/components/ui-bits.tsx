@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import type { WifiLabel } from "@/lib/decision-tree";
+import { Button } from "@/components/ui/button";
 
 export function WifiMark({ className }: { className?: string }) {
   return (
@@ -72,20 +73,33 @@ export function SectionTitle({ children, kicker }: { children: ReactNode; kicker
   );
 }
 
-export function RouteError({ error, reset }: { error: Error; reset: () => void }) {
+export function RouteError({ reset }: { error: Error; reset: () => void }) {
   return (
     <div className="mx-auto max-w-md rounded-xl border border-border bg-card p-6 text-center">
       <p className="font-display text-lg font-semibold text-foreground">This view didn't load</p>
       <p className="mt-2 text-sm text-muted-foreground">
-        {error instanceof Error ? error.message : "Something went wrong on our end."}
+        Something went wrong while loading this page. Your saved data is safe; please try again.
       </p>
-      <button
-        onClick={reset}
-        className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-      >
-        Try again
-      </button>
+      <Button onClick={reset} className="mt-4">Try again</Button>
     </div>
+  );
+}
+
+export function MeasurementsUnavailable({
+  onRetry,
+  retrying,
+}: {
+  onRetry: () => void;
+  retrying: boolean;
+}) {
+  return (
+    <section role="alert" className="mx-auto max-w-lg border-y border-border py-10 text-center">
+      <h2 className="font-display text-lg font-semibold text-foreground">Saved measurements are temporarily unavailable</h2>
+      <p className="mt-2 text-sm text-muted-foreground">Your saved data is safe. Please try loading it again.</p>
+      <Button onClick={onRetry} disabled={retrying} variant="outline" className="mt-5">
+        {retrying ? "Trying again…" : "Retry"}
+      </Button>
+    </section>
   );
 }
 

@@ -29,11 +29,12 @@ export interface ConnectionInfo {
   rttMs: number | null;
 }
 
-const LATENCY_PROBES = 10;
-const PROBE_TIMEOUT_MS = 4000;
-const DOWNLOAD_BYTES = 25 * 1024 * 1024; // 25 MB
-const DOWNLOAD_MAX_MS = 9000;
-const UPLOAD_BYTES = 6 * 1024 * 1024; // 6 MB
+const LATENCY_PROBES = 6;
+const PROBE_TIMEOUT_MS = 2200;
+const DOWNLOAD_BYTES = 12 * 1024 * 1024; // 12 MB
+const DOWNLOAD_MAX_MS = 7000;
+const UPLOAD_BYTES = 3 * 1024 * 1024; // 3 MB
+const UPLOAD_TIMEOUT_MS = 8000;
 
 /** Read the browser's Network Information API estimates. Browser-only. */
 export function readConnectionInfo(): ConnectionInfo {
@@ -87,10 +88,16 @@ async function measureLatency(): Promise<LatencyResult> {
   const samples: number[] = [];
   let failures = 0;
 
-  for (let i = 0; i < LATENCY_PROBES; i++) {
-    const ms = await timedProbe();
-    if (ms === null) failures++;
-    else samples.push(ms);
+  // Run three probes at once: keeps the ping phase quick without flooding the
+  // test endpoint with a large burst.
+  for (let offset = 0; offset < LATENCY_PROBES; offset += 3) {
+    const results = await Promise.all(
+      Array.from({ length: Math.min(3, LATENCY_PROBES - offset) }, () => timedProbe()),
+    );
+    for (const ms of results) {
+      if (ms === null) failures++;
+      else samples.push(ms);
+    }
   }
 
   if (samples.length === 0) {
@@ -124,6 +131,10 @@ async function measureDownload(
   let bytes = 0;
   let abortedByCap = false;
   const start = performance.now();
+  const timer = setTimeout(() => {
+    abortedByCap = true;
+    controller.abort();
+  }, maxMs);
 
   try {
     const res = await fetch(`${CF_BASE}/__down?bytes=${totalBytes}&t=${Date.now()}`, {
@@ -152,6 +163,8 @@ async function measureDownload(
     if (!abortedByCap && bytes === 0) {
       throw error instanceof Error ? error : new Error("Download test failed. Check your connection.");
     }
+  } finally {
+    clearTimeout(timer);
   }
 
   const elapsedSec = Math.max((performance.now() - start) / 1000, 0.05);
@@ -164,20 +177,24 @@ async function measureUpload(): Promise<number> {
     crypto.getRandomValues(payload.subarray(offset, Math.min(offset + 65536, UPLOAD_BYTES)));
   }
   const start = performance.now();
-  let res: Response;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
   try {
-    res = await fetch(`${CF_BASE}/__up?bytes=${UPLOAD_BYTES}`, {
+    const res = await fetch(`${CF_BASE}/__up?bytes=${UPLOAD_BYTES}`, {
       method: "POST",
       body: payload,
       cache: "no-store",
+      signal: controller.signal,
     });
+    if (!res.ok) throw new Error("upload unavailable");
+    await res.arrayBuffer();
+    const elapsedSec = Math.max((performance.now() - start) / 1000, 0.05);
+    return Math.round(((UPLOAD_BYTES * 8) / 1e6 / elapsedSec) * 10) / 10;
   } catch {
-    throw new Error("Upload test failed — the network rejected the upload. Try again.");
+    throw new Error("Upload test timed out or was blocked. Check your connection and try again.");
+  } finally {
+    clearTimeout(timer);
   }
-  if (!res.ok) throw new Error(`Upload test failed (server responded ${res.status}).`);
-  await res.arrayBuffer();
-  const elapsedSec = Math.max((performance.now() - start) / 1000, 0.05);
-  return Math.round(((UPLOAD_BYTES * 8) / 1e6 / elapsedSec) * 10) / 10;
 }
 
 // ============= Network identity =============

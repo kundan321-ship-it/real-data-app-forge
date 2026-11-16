@@ -22,4 +22,11 @@ describe("private Wi-Fi measurement policies", () => {
     expect(migration).toContain("packet_loss_pct <= 100");
     expect(migration).toContain("char_length(wifi_ssid) <= 60");
   });
+
+  it("keeps both database operations behind authenticated server functions", () => {
+    const functions = readFileSync(`${process.cwd()}/src/lib/wifi.functions.ts`, "utf8");
+    expect(functions.match(/\.middleware\(\[requireSupabaseAuth\]\)/g)).toHaveLength(2);
+    expect(functions).toContain("user_id: userId");
+    expect(functions).not.toContain("throw new Error(error.message)");
+  });
 });

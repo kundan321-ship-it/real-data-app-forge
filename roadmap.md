@@ -16,3 +16,5 @@
 - [x] Restrict measurement history and saves to signed-in account owners; keep legacy anonymous rows private
 - [x] Add email/password account access, display-name profile records, and session-aware sign-out
 - [x] Verify owner-only RLS policies, signed-out route gating, account form, regression tests, and mark only the selected finding fixed
+- [x] Keep database reads/saves owner-authenticated and show safe retry states instead of internal server messages
+- [x] Reduce measurement data transfer and bound upload time to keep tests fast and predictable

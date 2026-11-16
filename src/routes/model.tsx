@@ -9,7 +9,7 @@ import {
   type WifiLabel,
 } from "@/lib/decision-tree";
 import type { MeasurementDTO } from "@/lib/wifi.functions";
-import { SectionTitle, RouteError, RouteNotFound } from "@/components/ui-bits";
+import { SectionTitle, RouteError, RouteNotFound, MeasurementsUnavailable } from "@/components/ui-bits";
 import { AuthRequired } from "@/components/auth-required";
 import { useAuth } from "@/lib/auth-context";
 
@@ -62,7 +62,7 @@ function fmtWhen(iso: string): string {
 
 function ModelPage() {
   const { user, loading } = useAuth();
-  const { data = [] } = useQuery({
+  const { data = [], isError, isFetching, refetch } = useQuery({
     ...measurementsQueryOptions(user?.id ?? "signed-out"),
     enabled: Boolean(user),
   });
@@ -106,6 +106,7 @@ function ModelPage() {
 
   if (loading) return <p role="status" className="py-12 text-center text-sm text-muted-foreground">Checking your account…</p>;
   if (!user) return <AuthRequired />;
+  if (isError) return <MeasurementsUnavailable onRetry={() => void refetch()} retrying={isFetching} />;
 
   return (
     <div className="space-y-8">
