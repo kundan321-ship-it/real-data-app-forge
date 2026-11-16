@@ -110,7 +110,9 @@ function Index() {
   const saveRow = useServerFn(saveMeasurement);
   const saveMutation = useMutation({
     mutationFn: saveRow,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["wifi-measurements"] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["wifi-measurements"] });
+    },
   });
 
   // Browser Network Information API estimates (hydration-safe), plus the
@@ -212,7 +214,12 @@ function Index() {
       setPhase("done");
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "The test couldn't finish. Check your connection and try again.");
+      const message = err instanceof Error ? err.message : "";
+      const isExpectedIssue = message.startsWith("Network unreachable")
+        || message.startsWith("Download measurement failed")
+        || message.startsWith("Upload test timed out")
+        || message.startsWith("Too many runs were saved");
+      setError(isExpectedIssue ? message : "We couldn't complete or save this test. Check your connection and try again.");
       setPhase("error");
       return false;
     } finally {
@@ -418,7 +425,7 @@ function Index() {
             <p className="mt-2 max-w-xl text-sm text-muted-foreground">
               Turn it on and leave this tab open (pin it in the browser) — the app measures your
               network on its own and saves every run automatically. History keeps the last 7 days.
-              Each run transfers about 31 MB.
+              Each run transfers about 15 MB, with a small retry only if the network stalls.
             </p>
             {autoOn ? (
               <p className="mt-2 flex items-center gap-2 text-xs font-medium text-primary">
